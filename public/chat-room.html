@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Chat Room | LoveConnect</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+  .msg-selected > div { outline: 2px solid #ec4899; background: #fce7f3 !important; }
+  .fade-highlight > div {
+  animation: fadeHighlight 1.2s;
+}
+@keyframes fadeHighlight {
+  0%   { background: #f9a8d4; }
+  80%  { background: #f9a8d4; }
+  100% { background: inherit; }
+}
+.msg-text {
+  word-break: break-word;
+  white-space: pre-line;
+  max-width: 100%;
+}
+.reply-bubble {
+  font-size: 0.92em;
+  max-width: 70%;
+  white-space: pre-line;
+  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.msg-text, .reply-bubble {
+  word-break: break-word;
+  white-space: pre-line;
+}
+</style>
+</head>
+<body class="bg-pink-50 h-screen flex flex-col">
+  <header id="chatHeader" class="flex items-center px-4 py-3 shadow shrink-0" style="height:56px;">
+    <button onclick="window.location.href='chat.html'" class="p-2 rounded-full bg-pink-100 hover:bg-pink-200">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="#ec4899">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+    </button>
+    <img id="chatUserAvatar" src="" class="w-10 h-10 rounded-full border-2 border-pink-500 object-cover mx-3" />
+    <div class="flex flex-col flex-1">
+      <span id="chatTitle" class="font-bold text-pink-600 text-base"></span>
+      <span id="chatStatus" class="text-xs text-gray-500"></span>
+    </div>
+    <!-- Search icon -->
+    <button onclick="openChatSearch()" class="ml-2 p-2 rounded-full bg-pink-100 hover:bg-pink-200" title="Search in chat">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="#ec4899">
+        <circle cx="11" cy="11" r="8" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-2-2"/>
+      </svg>
+    </button>
+    <!-- Block icon -->
+    <button onclick="toggleBlockUser()" id="blockBtn" class="ml-2 p-2 rounded-full bg-pink-100 hover:bg-pink-200" title="Block user">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="#ef4444">
+        <circle cx="12" cy="12" r="10" stroke-width="2"/><line x1="8" y1="8" x2="16" y2="16" stroke-width="2"/><line x1="16" y1="8" x2="8" y2="16" stroke-width="2"/>
+      </svg>
+    </button>
+    <!-- Report icon -->
+<button onclick="openReportModal()" class="ml-2 p-2 rounded-full bg-pink-100 hover:bg-pink-200" title="Report user">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="#f59e42">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" />
+  </svg>
+</button>
+  </header>
+  <div id="selectionBar" class="hidden flex items-center justify-between px-4 py-2 bg-pink-100 border-b" style="height:56px;">
+  <div class="flex items-center gap-2">
+    <button onclick="cancelSelection()" class="p-2 rounded-full bg-pink-200 hover:bg-pink-300">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="#ec4899">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+    <span id="selectedCount" class="font-bold text-pink-600">0</span>
+    <span class="text-pink-600">selected</span>
+  </div>
+  <div class="flex items-center gap-3">
+    <button onclick="copySelected()" title="Copy" class="p-2 rounded-full bg-pink-200 hover:bg-pink-300">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="#ec4899">
+        <rect x="9" y="9" width="13" height="13" rx="2" /><rect x="3" y="3" width="13" height="13" rx="2" />
+      </svg>
+    </button>
+    <button onclick="editSelected()" id="editBtn" title="Edit" class="p-2 rounded-full bg-pink-200 hover:bg-pink-300 hidden">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="#ec4899">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13l6-6m2 2l-6 6m-2 2h6" />
+      </svg>
+    </button>
+    <div class="relative group">
+      <button onclick="showDeleteMenu()" title="Delete" class="p-2 rounded-full bg-pink-200 hover:bg-pink-300">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="#ec4899">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+      <div id="deleteMenu" class="hidden absolute right-0 mt-2 w-40 bg-white border rounded shadow-lg z-50">
+        <button onclick="deleteSelected('me')" class="block w-full text-left px-4 py-2 hover:bg-pink-50 text-pink-600">Delete for me</button>
+        <button onclick="deleteSelected('everyone')" class="block w-full text-left px-4 py-2 hover:bg-pink-50 text-red-600">Delete for everyone</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="chatSearchBar" class="flex justify-end px-4 pt-2 hidden">
+<input id="chatSearchInput" type="text" placeholder="Search in chat..."
+  class="px-4 py-2 rounded-full border border-pink-200 focus:outline-none focus:border-pink-400 text-base w-[90%]"
+  oninput="searchChatMessages()" />
+  <button onclick="closeChatSearch()" class="ml-2 px-3 py-2 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700">Cancel</button>
+</div>
+  <main id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-3"></main>
+   <div id="replyPreview" class="hidden px-4 py-2 bg-pink-100 border-b flex items-center justify-between">
+  <div>
+    <span class="text-xs text-pink-600">Replying to:</span>
+    <span id="replyText" class="ml-2 text-sm text-gray-700"></span>
+  </div>
+  <button onclick="cancelReply()" class="ml-4 text-pink-500 hover:text-pink-700 text-lg">&times;</button>
+</div>
+  <form id="chatForm" class="flex items-center gap-2 p-4 border-t shrink-0">
+<div id="chatInputWrapper" class="flex flex-1 items-center gap-2 min-w-0">
+<textarea id="chatInput" rows="1" placeholder="Type a message..."
+  class="flex-1 px-4 py-2 rounded-full border border-pink-200 focus:outline-none focus:border-pink-400 resize-none h-10 overflow-y-auto"
+  autocomplete="off"></textarea>
+    <button type="submit" class="px-4 py-2 bg-pink-500 text-white rounded-full">Send</button>
+    <label class="cursor-pointer flex items-center">
+      <input type="file" id="fileInput" class="hidden" />
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-pink-400 hover:text-pink-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.586-6.586a4 4 0 10-5.656-5.656l-6.586 6.586" />
+      </svg>
+    </label>
+    <button type="button" id="voiceBtn" class="ml-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-pink-400 hover:text-pink-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18v2m0 0a4 4 0 004-4h-8a4 4 0 004 4zm0-14a4 4 0 00-4 4v4a4 4 0 008 0V8a4 4 0 00-4-4z" />
+      </svg>
+    </button>
+  </div>
+  <span id="recordingIndicator" class="ml-2 text-pink-500 text-xs hidden">Recording...</span>
+</form>
+<!-- Image Fullscreen Modal -->
+<div id="imageModal" class="fixed inset-0 bg-black z-50 hidden flex items-center justify-center">
+  <button onclick="closeImageModal()" 
+    class="absolute top-4 left-4 text-white text-3xl bg-black/40 rounded-full p-2 z-10">
+    &#8592;
+  </button>
+  <a id="saveImageBtn" download 
+    class="absolute top-4 right-4 text-white text-2xl bg-black/40 rounded-full p-2 z-10" 
+    title="Save">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+        d="M7 16v2a2 2 0 002 2h6a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" />
+    </svg>
+  </a>
+  <!-- ✅ Fullscreen image -->
+  <img id="modalImage" src="" class="h-full w-full object-contain" />
+</div>
+
+<!-- Video Fullscreen Modal -->
+<div id="videoModal" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center">
+  <button onclick="closeVideoModal()" 
+    class="absolute top-4 left-4 text-white text-3xl bg-black/40 rounded-full p-2 z-10">
+    &#8592;
+  </button>
+  <!-- ✅ Fullscreen video -->
+  <video id="modalVideo" controls class="h-full w-full object-contain bg-black"></video>
+  <button onclick="saveVideo()" 
+    class="absolute top-4 right-4 text-white text-2xl bg-black/40 rounded-full p-2 z-10" 
+    title="Save">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+        d="M7 16v2a2 2 0 002 2h6a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" />
+    </svg>
+  </button>
+</div>
+
+<!-- Report Modal -->
+<div id="reportModal" class="fixed inset-0 bg-black/40 z-50 hidden flex items-center justify-center">
+  <div class="bg-white rounded-xl shadow-lg p-6 w-80 flex flex-col items-center">
+    <h2 class="text-lg font-bold mb-2 text-pink-600">Report User</h2>
+    <textarea id="reportReason" rows="3" placeholder="Why are you reporting this user?" class="w-full px-3 py-2 border rounded mb-4"></textarea>
+    <div class="flex gap-3">
+      <button onclick="submitReport()" class="px-4 py-2 bg-pink-500 text-white rounded-full">Submit</button>
+      <button onclick="closeReportModal()" class="px-4 py-2 bg-gray-200 rounded-full">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Voice Recorder Modal -->
+<div id="voiceRecorderModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center">
+  <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col items-center w-80">
+    <div id="voiceTimer" class="text-2xl font-mono mb-4">00:00</div>
+    <div class="flex gap-4 mb-4">
+      <button id="pauseBtn" class="p-2 rounded-full bg-pink-100 hover:bg-pink-200 text-pink-600" title="Pause">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>
+        </svg>
+      </button>
+      <button id="resumeBtn" class="p-2 rounded-full bg-pink-100 hover:bg-pink-200 text-pink-600 hidden" title="Resume">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <polygon points="5,3 19,12 5,21" />
+        </svg>
+      </button>
+      <button id="cancelBtn" class="p-2 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700" title="Cancel">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+      <button id="sendVoiceBtn" class="p-2 rounded-full bg-pink-500 hover:bg-pink-600 text-white" title="Send">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+      </button>
+    </div>
+    <div id="recordingStatus" class="text-pink-500 text-sm">Recording...</div>
+  </div>
+</div>
+
+<div id="blockedNotice" class="hidden text-center text-pink-600 font-semibold py-6">
+  You blocked this user.
+  <button onclick="toggleBlockUser()" class="ml-2 px-3 py-1 bg-pink-500 text-white rounded-full">Unblock</button>
+</div>
+
+<script>
+    const theme = JSON.parse(localStorage.getItem('theme')) || { bg: '#fdf2f8', accent: '#ec4899' };
+  document.body.style.background = theme.bg;
+  document.querySelectorAll('.text-pink-600').forEach(el => { el.style.color = theme.accent; });
+  document.querySelectorAll('.bg-pink-600').forEach(el => { el.style.background = theme.accent; });
+
+  // Get current user info
+  const accounts = JSON.parse(localStorage.getItem("userAccounts") || "[]");
+  const idx = parseInt(localStorage.getItem("currentAccountIndex") || "0");
+  const currentUser = accounts[idx] || {};
+
+  // Get friend userId from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const friendId = urlParams.get('userId');
+
+  let friendProfile = {};
+  let typingTimeout = null;
+  let isBlocked = false;
+
+  async function loadFriendProfile() {
+    const res = await fetch(`/api/profile/${friendId}`);
+    if (!res.ok) return;
+    const user = await res.json();
+    friendProfile = user;
+    document.getElementById('chatTitle').textContent = '@' + (user.username || friendId);
+    document.getElementById('chatUserAvatar').src = user.avatar || 'default-avatar.png';
+    updateStatus(user);
+  }
+
+  function updateStatus(user) {
+    if (user.privacy && user.privacy.lastSeen === "nobody") {
+      document.getElementById('chatStatus').textContent = "";
+      document.getElementById('chatStatus').classList.remove('text-green-500', 'text-gray-500', 'text-blue-500');
+      return;
+    }
+    if (user.online) {
+      document.getElementById('chatStatus').textContent = "Online";
+      document.getElementById('chatStatus').classList.remove('text-gray-500', 'text-blue-500');
+      document.getElementById('chatStatus').classList.add('text-green-500');
+    } else if (user.lastSeen) {
+      const lastSeen = new Date(user.lastSeen);
+      document.getElementById('chatStatus').textContent = "Last seen: " + lastSeen.toLocaleString();
+      document.getElementById('chatStatus').classList.remove('text-green-500', 'text-blue-500');
+      document.getElementById('chatStatus').classList.add('text-gray-500');
+    } else {
+      document.getElementById('chatStatus').textContent = "";
+      document.getElementById('chatStatus').classList.remove('text-green-500', 'text-gray-500', 'text-blue-500');
+    }
+  }
+
+  loadFriendProfile();
+
+  // Connect to Socket.IO
+  const socket = io();
+  socket.emit("online", currentUser.userId);
+
+  // Join room
+  const roomId = [currentUser.userId, friendId].sort().join('_');
+  socket.emit('joinRoom', roomId);
+
+  // Status updates
+  socket.on('status', status => {
+    if (status.userId === friendId) {
+      if (friendProfile.privacy && friendProfile.privacy.lastSeen === "nobody") {
+        document.getElementById('chatStatus').textContent = "";
+        document.getElementById('chatStatus').classList.remove('text-green-500', 'text-gray-500', 'text-blue-500');
+        return;
+      }
+      friendProfile.online = status.online;
+      friendProfile.lastSeen = status.lastSeen || friendProfile.lastSeen;
+      updateStatus(friendProfile);
+    }
+  });
+
+  // Typing
+  document.getElementById('chatInput').addEventListener('input', function() {
+    socket.emit('typing', { roomId, from: currentUser.userId, to: friendId });
+  });
+
+  socket.on('typing', data => {
+    if (data.from === friendId && friendProfile.privacy && friendProfile.privacy.lastSeen !== "nobody") {
+      document.getElementById('chatStatus').textContent = "Typing...";
+      document.getElementById('chatStatus').classList.remove('text-gray-500', 'text-green-500');
+      document.getElementById('chatStatus').classList.add('text-blue-500');
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => updateStatus(friendProfile), 2000);
+    }
+  });
+
+  // Send message
+document.getElementById('chatForm').onsubmit = function(e) {
+  e.preventDefault();
+  if (isBlocked) {
+    showPopup("You have blocked this user. Unblock to send messages.", "error");
+    return;
+  }
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+  const editingId = this.dataset.editing;
+  if (editingId) {
+    // Send edit request to server
+    fetch('/api/messages/edit', {
+      method: 'POST',
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomId, msgId: editingId, text, userId: currentUser.userId })
+    }).then(() => {
+      showPopup("Message edited", "success");
+      renderAllMessages();
+      this.dataset.editing = '';
+      input.value = '';
+    });
+    return;
+  }
+  // Normal send
+  const msg = {
+    from: currentUser.userId,
+    to: friendId,
+    text,
+    time: Date.now(),
+    delivered: false,
+    seen: false
+  };
+if (replyToMsg) {
+  msg.reply = {
+    from: replyToMsg.from,
+    username: replyToMsg.from === friendId ? (friendProfile.username || friendId) : (currentUser.username || currentUser.userId),
+    text: replyToMsg.text || '',
+    fileType: replyToMsg.fileType || '',
+    fileUrl: replyToMsg.fileUrl || '',
+    time: replyToMsg.time
+  };
+}
+  socket.emit('chatMessage', { ...msg, roomId });
+  input.value = '';
+  cancelReply();
+};
+
+  // File upload
+  document.getElementById('fileInput').addEventListener('change', async function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('roomId', roomId);
+  formData.append('from', currentUser.userId);
+  formData.append('to', friendId);
+  formData.append('time', Date.now());
+
+  // Upload to server
+  const res = await fetch('/api/messages/upload', {
+    method: 'POST',
+    body: formData
+  });
+  const msg = await res.json();
+  if (msg && msg.fileUrl) {
+    socket.emit('chatMessage', { ...msg, roomId });
+  }
+  e.target.value = ''; // reset input
+});
+
+  // Receive message
+socket.on('chatMessage', msg => {
+  // Only append if not already shown (avoid duplicates)
+  if (!document.querySelector(`.status[data-time="${msg.time}"]`)) {
+    appendMessage(msg);
+  }
+  // If the message is for me and from friend, send delivered and seen receipts
+  if (msg.from === friendId && msg.to === currentUser.userId) {
+    socket.emit('delivered', { roomId, from: msg.from, time: msg.time });
+    socket.emit('seen', { roomId, from: msg.from, time: msg.time });
+  }
+});
+
+  // ✅ Only update status instead of re-rendering everything
+  socket.on('delivered', msg => {
+    updateMessageStatus(msg);
+  });
+  socket.on('seen', msg => {
+    updateMessageStatus(msg);
+  });
+
+  async function loadMessagesServer() {
+    const res = await fetch(`/api/messages/${roomId}`);
+    if (!res.ok) return [];
+    return await res.json();
+  }
+
+async function renderAllMessages() {
+  const chat = document.getElementById('chatMessages');
+  chat.innerHTML = '';
+  const messages = await loadMessagesServer();
+  let lastDate = null;
+  messages.forEach(msg => {
+    if (msg.deletedFor && msg.deletedFor.includes(currentUser.userId)) return;
+    const msgDate = new Date(msg.time);
+    const dateStr = msgDate.toDateString();
+    if (lastDate !== dateStr) {
+      // Insert date separator
+      const sep = document.createElement('div');
+      sep.className = "flex justify-center my-2";
+      sep.innerHTML = `<span class="bg-pink-100 text-pink-600 px-4 py-1 rounded-full text-xs font-semibold shadow">${formatDateSeparator(msg.time)}</span>`;
+      chat.appendChild(sep);
+      lastDate = dateStr;
+    }
+    appendMessage(msg);
+  });
+  // Always scroll to latest after rendering
+  chat.scrollTop = chat.scrollHeight;
+  // After chat.scrollTop = chat.scrollHeight;
+messages.forEach(msg => {
+  if (msg.to === currentUser.userId && !msg.seen) {
+    socket.emit('seen', { roomId, from: msg.from, time: msg.time });
+  }
+});
+}
+  renderAllMessages();
+
+  setInterval(() => {
+    socket.emit("heartbeat", currentUser.userId);
+  }, 10000);
+
+function appendMessage(msg) {
+  const chat = document.getElementById('chatMessages');
+  const msgId = `${msg.from}-${msg.time}`;
+  const div = document.createElement('div');
+  div.className = `flex ${msg.from === currentUser.userId ? "justify-end" : "justify-start"}`;
+  div.setAttribute('data-msgid', msgId);
+
+    // Add swipe to reply listeners
+  addSwipeReplyListeners(div, msg);
+
+  // Long press for mobile
+  div.ontouchstart = function(e) {
+    this._pressTimer = setTimeout(() => handleMsgLongPress(e, msgId), 500);
+  };
+  div.ontouchend = function() { clearTimeout(this._pressTimer); };
+  // Right click for desktop
+  div.oncontextmenu = function(e) {
+    handleMsgLongPress(e, msgId);
+    return false;
+  };
+
+  let statusIcon = '';
+  if (msg.from === currentUser.userId) {
+    if (msg.seen) {
+      statusIcon = '<span style="color:#3b82f6;">✓✓</span>';
+    } else if (msg.delivered) {
+      statusIcon = '<span style="color:#888;">✓✓</span>';
+    } else {
+      statusIcon = '<span style="color:#888;">✓</span>';
+    }
+  }
+let replyHtml = '';
+if (msg.reply) {
+  let replyName;
+  if (msg.reply.from === friendId && friendProfile.username) {
+    replyName = "@" + friendProfile.username;
+  } else if (msg.reply.username) {
+    replyName = "@" + msg.reply.username;
+  } else if (msg.reply.from === currentUser.userId && currentUser.username) {
+    replyName = "@" + currentUser.username;
+  } else {
+    replyName = msg.reply.from;
+  }
+let replyText = msg.reply.text
+  ? msg.reply.text.length > 80
+    ? msg.reply.text.slice(0, 80) + '...'
+    : msg.reply.text
+  : (msg.reply.fileType ? msg.reply.fileType.split('/')[0].toUpperCase() : 'Media');
+replyHtml = `
+  <div class="reply-bubble cursor-pointer mb-2 px-2 py-1 bg-pink-50 border-l-4 border-pink-400 rounded-md max-w-[80vw] sm:max-w-md text-xs leading-tight break-words"
+       data-reply-time="${msg.reply.time}" title="Go to replied message" style="font-size:0.92em;">
+    <span class="font-semibold text-pink-600">${replyName}</span>
+    <span class="ml-1 text-gray-700 italic break-all">${replyText}</span>
+  </div>
+`;
+}
+  
+  let content = '';
+  if (msg.fileUrl) {
+    const fileName = msg.fileUrl.split('/').pop();
+    if (msg.fileType && msg.fileType.startsWith('image/')) {
+      content = `<img src="${msg.fileUrl}" class="max-w-[200px] rounded-lg mb-1 cursor-pointer" onclick="openImageModal('${msg.fileUrl}')"/>`;
+    } else if (msg.fileType && msg.fileType.startsWith('video/')) {
+      content = `<video src="${msg.fileUrl}" class="max-w-[200px] rounded-lg mb-1 cursor-pointer" onclick="openVideoModal('${msg.fileUrl}')"></video>`;
+    } else if (msg.fileType && msg.fileType.startsWith('audio/')) {
+      let durationSec = msg.duration ? Math.round(msg.duration / 1000) : '';
+      content = `
+    <div class="flex items-center gap-2 mb-1">
+      <audio controls src="${msg.fileUrl}" class="max-w-[180px] rounded-lg bg-pink-100"></audio>
+      <span class="text-xs text-gray-400">${durationSec ? durationSec + 's' : ''}</span>
+    </div>
+  `;
+    } else {
+      content = `
+        <div class="flex items-center gap-2 mb-1">
+          <a href="${msg.fileUrl}" download class="text-blue-500 hover:text-blue-700" title="Download">
+            <svg xmlns="http://www.w3.org/2000/            function showDeleteMenu() {
+              document.getElementById('deleteMenu').classList.toggle('hidden');
+            }
+            document.addEventListener('click', e => {
+              if (!e.target.closest('.group')) document.getElementById('deleteMenu').classList.add('hidden');
+            });            function showDeleteMenu() {
+              document.getElementById('deleteMenu').classList.toggle('hidden');
+            }
+            document.addEventListener('click', e => {
+              if (!e.target.closest('.group')) document.getElementById('deleteMenu').classList.add('hidden');
+            });            function showDeleteMenu() {
+              document.getElementById('deleteMenu').classList.toggle('hidden');
+            }
+            document.addEventListener('click', e => {
+              if (!e.target.closest('.group')) document.getElementById('deleteMenu').classList.add('hidden');
+            });            function showDeleteMenu() {
+              document.getElementById('deleteMenu').classList.toggle('hidden');
+            }
+            document.addEventListener('click', e => {
+              if (!e.target.closest('.group')) document.getElementById('deleteMenu').classList.add('hidden');
+            });            function showDeleteMenu() {
+              document.getElementById('deleteMenu').classList.toggle('hidden');
+            }
+            document.addEventListener('click', e => {
+              if (!e.target.closest('.group')) document.getElementById('deleteMenu').classList.add('hidden');
+            });            function showDeleteMenu() {
+              document.getElementById('deleteMenu').classList.toggle('hidden');
+            }
+            document.addEventListener('click', e => {
+              if (!e.target.closest('.group')) document.getElementById('deleteMenu').classList.add('hidden');
+            });            function showDeleteMenu() {
+              document.getElementById('deleteMenu').classList.toggle('hidden');
+            }
+            document.addEventListener('click', e => {
+              if (!e.target.closest('.group')) document.getElementById('deleteMenu').classList.add('hidden');
+            });            function showDeleteMenu() {
+              document.getElementById('deleteMenu').classList.toggle('hidden');
+            }
+            document.addEventListener('click', e => {
+              if (!e.target.closest('.group')) document.getElementById('deleteMenu').classList.add('hidden');
+            });            function showDeleteMenu() {
+              document.getElementById('deleteMenu').classList.toggle('hidden');
+            }
+            document.addEventListener('click', e => {
+              if (!e.target.closest('.group')) document.getElementById('deleteMenu').classList.add('hidden');
+            });            function showDeleteMenu() {
+              document.getElementById('deleteMenu').classList.toggle('hidden');
+            }
+            document.addEventListener('click', e => {
+              if (!e.target.closest('.group')) document.getElementById('deleteMenu').classList.add('hidden');
+            });svg" class="h-6 w-6 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" />
+            </svg>
+          </a>
+          <span class="truncate max-w-[120px] text-sm">${fileName}</span>
+        </div>
+      `;
+    }
+  }
+  if (msg.text) {
+if (msg.text) {
+  if (msg.text.length > 200) {
+    const shortText = msg.text.slice(0, 200);
+    content += `<div>
+      <span class="short-msg msg-text whitespace-pre-line break-words break-all block max-w-full">${shortText}...</span>
+      <span class="full-msg hidden msg-text whitespace-pre-line break-words break-all block max-w-full">${msg.text}</span>
+      <button class="text-blue-500 underline text-xs ml-1" onclick="this.previousElementSibling.classList.remove('hidden');this.previousElementSibling.previousElementSibling.classList.add('hidden');this.style.display='none'">Read more</button>
+    </div>`;
+  } else {
+    content += `<div class="msg-text whitespace-pre-line break-words break-all block max-w-full">${msg.text}</div>`;
+  }
+} else {
+      content += `<div class="msg-text whitespace-pre-line break-words">${msg.text}</div>`;
+    }
+  }
+div.innerHTML = `
+<div class="px-3 py-2 rounded-2xl max-w-[80vw] sm:max-w-md break-words ${msg.from === currentUser.userId ? "bg-pink-500 text-white" : "bg-gray-200 text-gray-900"}">
+    ${replyHtml}
+    ${content}
+    <div class="text-xs mt-1 ${msg.from === currentUser.userId ? "text-pink-100" : "text-gray-500"} status" data-time="${msg.time}">
+      ${new Date(msg.time).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: true})}
+      ${msg.from === currentUser.userId ? `<span class="tick">${statusIcon}</span>` : ""}
+    </div>
+  </div>
+`;
+  chat.appendChild(div);
+  // After chat.appendChild(div);
+if (msg.reply) {
+  const replyBubble = div.querySelector('.reply-bubble');
+  if (replyBubble) {
+    replyBubble.onclick = function() {
+      const target = document.querySelector(`[data-msgid*="-${msg.reply.time}"]`);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Add fade animation
+        target.classList.add('fade-highlight');
+        setTimeout(() => target.classList.remove('fade-highlight'), 1200);
+      } else {
+        showPopup("Original message not found.", "error");
+      }
+    };
+  }
+}
+  chat.scrollTop = chat.scrollHeight;
+}
+
+  // ✅ Update only ticks instead of reloading
+  function updateMessageStatus(msg) {
+    const el = document.querySelector(`.status[data-time="${msg.time}"] .tick`);
+    if (el) {
+      if (msg.seen) {
+        el.innerHTML = '<span style="color:#3b82f6;">✓✓</span>';
+      } else if (msg.delivered) {
+        el.innerHTML = '<span style="color:#888;">✓✓</span>';
+      } else {
+        el.innerHTML = '<span style="color:#888;">✓</span>';
+      }
+    }
+  }
+
+  function openImageModal(src) {
+  document.getElementById('modalImage').src = src;
+  document.getElementById('imageModal').classList.remove('hidden');
+  document.getElementById('saveImageBtn').href = src;
+}
+function closeImageModal() {
+  document.getElementById('imageModal').classList.add('hidden');
+}
+
+function openVideoModal(src) {
+  const video = document.getElementById('modalVideo');
+  video.src = src;
+  video.currentTime = 0;
+  video.play();
+  document.getElementById('videoModal').classList.remove('hidden');
+  video.focus();
+  video.controls = true;
+}
+function closeVideoModal() {
+  const video = document.getElementById('modalVideo');
+  video.pause();
+  video.src = '';
+  document.getElementById('videoModal').classList.add('hidden');
+}
+function saveVideo() {
+  const video = document.getElementById('modalVideo');
+  const a = document.createElement('a');
+  a.href = video.src;
+  a.download = video.src.split('/').pop();
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+function openImageModal(src) {
+  document.getElementById('modalImage').src = src;
+  document.getElementById('imageModal').classList.remove('hidden');
+  document.getElementById('saveImageBtn').href = src;
+  document.body.style.overflow = 'hidden'; // 🚫 disable scroll
+}
+
+function closeImageModal() {
+  document.getElementById('imageModal').classList.add('hidden');
+  document.body.style.overflow = ''; // ✅ restore scroll
+}
+
+function openVideoModal(src) {
+  const video = document.getElementById('modalVideo');
+  video.src = src;
+  video.currentTime = 0;
+  video.play();
+  document.getElementById('videoModal').classList.remove('hidden');
+  video.focus();
+  video.controls = true;
+  document.body.style.overflow = 'hidden'; // 🚫 disable scroll
+}
+
+function closeVideoModal() {
+  const video = document.getElementById('modalVideo');
+  video.pause();
+  video.src = '';
+  document.getElementById('videoModal').classList.add('hidden');
+  document.body.style.overflow = ''; // ✅ restore scroll
+}
+
+const voiceBtn = document.getElementById('voiceBtn');
+const voiceRecorderModal = document.getElementById('voiceRecorderModal');
+const voiceTimer = document.getElementById('voiceTimer');
+const recordingStatus = document.getElementById('recordingStatus');
+const pauseBtn = document.getElementById('pauseBtn');
+const resumeBtn = document.getElementById('resumeBtn');
+const cancelBtn = document.getElementById('cancelBtn');
+const sendVoiceBtn = document.getElementById('sendVoiceBtn');
+
+let mediaRecorder, audioChunks = [], timerInterval, seconds = 0, isPaused = false;
+
+voiceBtn.onclick = openVoiceRecorder;
+
+function openVoiceRecorder() {
+  voiceRecorderModal.classList.remove('hidden');
+  voiceTimer.textContent = "00:00";
+  recordingStatus.textContent = "Recording...";
+  pauseBtn.classList.remove('hidden');
+  resumeBtn.classList.add('hidden');
+  audioChunks = [];
+  seconds = 0;
+  isPaused = false;
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = event => {
+      if (event.data.size > 0) audioChunks.push(event.data);
+    };
+    mediaRecorder.onstop = () => {};
+    mediaRecorder.start();
+    timerInterval = setInterval(() => {
+      if (!isPaused) {
+        seconds++;
+        voiceTimer.textContent = ("0" + Math.floor(seconds / 60)).slice(-2) + ":" + ("0" + (seconds % 60)).slice(-2);
+      }
+    }, 1000);
+  });
+}
+
+// Pause
+pauseBtn.onclick = function() {
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.pause();
+    isPaused = true;
+    recordingStatus.textContent = "Paused";
+    pauseBtn.classList.add('hidden');
+    resumeBtn.classList.remove('hidden');
+  }
+};
+// Resume
+resumeBtn.onclick = function() {
+  if (mediaRecorder && mediaRecorder.state === "paused") {
+    mediaRecorder.resume();
+    isPaused = false;
+    recordingStatus.textContent = "Recording...";
+    pauseBtn.classList.remove('hidden');
+    resumeBtn.classList.add('hidden');
+  }
+};
+// Cancel
+cancelBtn.onclick = function() {
+  if (mediaRecorder) {
+    mediaRecorder.stop();
+    mediaRecorder = null;
+  }
+  clearInterval(timerInterval);
+  voiceRecorderModal.classList.add('hidden');
+};
+// Send
+sendVoiceBtn.onclick = async function() {
+  if (mediaRecorder) {
+    mediaRecorder.onstop = async () => {
+      clearInterval(timerInterval);
+      voiceRecorderModal.classList.add('hidden');
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+
+      // Wait for metadata to get duration
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.onloadedmetadata = async () => {
+        const formData = new FormData();
+        formData.append('file', audioBlob, 'voice.webm');
+        formData.append('roomId', roomId);
+        formData.append('from', currentUser.userId);
+        formData.append('to', friendId);
+        formData.append('time', Date.now());
+        formData.append('duration', Math.round(audio.duration * 1000)); // duration in ms
+
+        const res = await fetch('/api/messages/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const msg = await res.json();
+        if (msg && msg.fileUrl) {
+          msg.fileType = 'audio/webm';
+          msg.duration = Math.round(audio.duration * 1000);
+          socket.emit('chatMessage', { ...msg, roomId });
+        }
+        URL.revokeObjectURL(audioUrl);
+      };
+      // Force load metadata
+      audio.load();
+    };
+    mediaRecorder.stop();
+    mediaRecorder = null;
+  }
+};
+
+let selectedMessages = new Set();
+
+function updateSelectionBar() {
+  const bar = document.getElementById('selectionBar');
+  const header = document.getElementById('chatHeader');
+  const count = selectedMessages.size;
+  document.getElementById('selectedCount').textContent = count;
+  if (count > 0) {
+    bar.classList.remove('hidden');
+    header.classList.add('hidden');
+  } else {
+    bar.classList.add('hidden');
+    header.classList.remove('hidden');
+  }
+  document.getElementById('editBtn').classList.toggle('hidden', count !== 1);
+}
+
+function cancelSelection() {
+  selectedMessages.clear();
+  document.querySelectorAll('.msg-selected').forEach(el => el.classList.remove('msg-selected'));
+  updateSelectionBar();
+}
+
+function cancelSelection() {
+  selectedMessages.clear();
+  document.querySelectorAll('.msg-selected').forEach(el => el.classList.remove('msg-selected'));
+  updateSelectionBar();
+}
+
+function showDeleteMenu() {
+  document.getElementById('deleteMenu').classList.toggle('hidden');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.group')) document.getElementById('deleteMenu').classList.add('hidden');
+});
+
+// Long press/select message
+function handleMsgLongPress(e, msgId) {
+  e.preventDefault();
+  toggleSelectMsg(msgId);
+}
+function toggleSelectMsg(msgId) {
+  const el = document.querySelector(`[data-msgid="${msgId}"]`);
+  if (!el) return;
+  if (selectedMessages.has(msgId)) {
+    selectedMessages.delete(msgId);
+    el.classList.remove('msg-selected');
+  } else {
+    selectedMessages.add(msgId);
+    el.classList.add('msg-selected');
+  }
+  updateSelectionBar();
+}
+
+// Copy
+function copySelected() {
+  const texts = Array.from(selectedMessages).map(id => {
+    const el = document.querySelector(`[data-msgid="${id}"] .msg-text`);
+    return el ? el.textContent : '';
+  }).filter(Boolean);
+  if (texts.length) {
+    navigator.clipboard.writeText(texts.join('\n'));
+    showPopup("Copied!", "success");
+  }
+}
+
+// Edit
+function editSelected() {
+  if (selectedMessages.size !== 1) return;
+  const msgId = Array.from(selectedMessages)[0];
+  const el = document.querySelector(`[data-msgid="${msgId}"] .msg-text`);
+  if (!el) return;
+  // Only allow editing if you are the sender
+  if (!msgId.startsWith(currentUser.userId + "-")) {
+    showPopup("You can only edit your own messages.", "error");
+    return;
+  }
+  const text = el.textContent;
+  document.getElementById('chatInput').value = text;
+  document.getElementById('chatInput').focus();
+  document.getElementById('chatForm').dataset.editing = msgId;
+  cancelSelection();
+}
+
+function showDeleteMenu() {
+  document.getElementById('deleteMenu').classList.toggle('hidden');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.group')) document.getElementById('deleteMenu').classList.add('hidden');
+});
+
+// Delete
+async function deleteSelected(type) {
+  const ids = Array.from(selectedMessages);
+  // Send delete request to server (implement API)
+  await fetch('/api/messages/delete', {
+    method: 'POST',
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ roomId, ids, type, userId: currentUser.userId })
+  });
+  showPopup(type === "everyone" ? "Deleted for everyone" : "Deleted for you", "success");
+  cancelSelection();
+  renderAllMessages();
+}
+function searchChatMessages() {
+  const term = document.getElementById('chatSearchInput').value.trim().toLowerCase();
+  const messages = document.querySelectorAll('#chatMessages .px-3');
+  let found = false;
+  messages.forEach(msgDiv => {
+    if (msgDiv.textContent.toLowerCase().includes(term) && term.length > 0) {
+      msgDiv.classList.add('ring-2', 'ring-pink-400');
+      msgDiv.scrollIntoView({ behavior: "smooth", block: "center" });
+      found = true;
+      setTimeout(() => msgDiv.classList.remove('ring-2', 'ring-pink-400'), 2000);
+    } else {
+      msgDiv.classList.remove('ring-2', 'ring-pink-400');
+    }
+  });
+  if (term.length > 0 && !found) showPopup("No match found.", "error");
+}
+
+// Check block status on load
+async function checkBlockStatus() {
+  const res = await fetch(`/api/block-status?userId=${currentUser.userId}&targetId=${friendId}`);
+  if (res.ok) {
+    const data = await res.json();
+    isBlocked = data.blocked;
+    updateBlockBtn();
+    updateChatInputVisibility();
+  }
+}
+function updateBlockBtn() {
+  document.getElementById('blockBtn').title = isBlocked ? "Unblock user" : "Block user";
+  document.getElementById('blockBtn').classList.toggle('bg-red-200', isBlocked);
+}
+async function toggleBlockUser() {
+  const action = isBlocked ? "unblock" : "block";
+  const res = await fetch(`/api/${action}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: currentUser.userId, targetId: friendId })
+  });
+  if (res.ok) {
+    isBlocked = !isBlocked;
+    updateBlockBtn();
+    updateChatInputVisibility();
+    showPopup(isBlocked ? "User blocked. You won't receive their messages." : "User unblocked.", isBlocked ? "error" : "success");
+  }
+}
+checkBlockStatus();
+
+function updateChatInputVisibility() {
+  const inputWrapper = document.getElementById('chatInputWrapper');
+  const blockedNotice = document.getElementById('blockedNotice');
+  if (isBlocked) {
+    inputWrapper.style.display = 'none';
+    blockedNotice.classList.remove('hidden');
+  } else {
+    inputWrapper.style.display = '';
+    blockedNotice.classList.add('hidden');
+  }
+}
+
+function showPopup(message, type = "info") {
+  let popup = document.createElement("div");
+  popup.textContent = message;
+  popup.className = `fixed bottom-8 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-50 text-white font-semibold transition-all
+    ${type === "error" ? "bg-red-500" : type === "success" ? "bg-green-500" : "bg-pink-500"}`;
+  document.body.appendChild(popup);
+  setTimeout(() => {
+    popup.style.opacity = "0";
+    setTimeout(() => popup.remove(), 400);
+  }, 2000);
+}
+
+function openChatSearch() {
+  document.getElementById('chatSearchBar').classList.remove('hidden');
+  document.getElementById('chatSearchInput').focus();
+}
+function closeChatSearch() {
+  document.getElementById('chatSearchBar').classList.add('hidden');
+  document.getElementById('chatSearchInput').value = '';
+}
+let replyToMsg = null;
+
+// Touch/Mouse swipe detection for each message
+function addSwipeReplyListeners(div, msg) {
+  let startX = null, startY = null, swiped = false;
+
+  // Touch events (mobile)
+  div.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      swiped = false;
+    }
+  });
+  div.addEventListener('touchmove', e => {
+    if (startX !== null && !swiped) {
+      let dx = e.touches[0].clientX - startX;
+      let dy = Math.abs(e.touches[0].clientY - startY);
+      if (dx > 60 && dy < 40) { // swipe right
+        swiped = true;
+        startReply(msg);
+      }
+    }
+  });
+  div.addEventListener('touchend', () => { startX = null; startY = null; swiped = false; });
+
+  // Mouse events (desktop)
+  div.addEventListener('mousedown', e => {
+    startX = e.clientX;
+    startY = e.clientY;
+    swiped = false;
+  });
+  div.addEventListener('mousemove', e => {
+    if (startX !== null && !swiped) {
+      let dx = e.clientX - startX;
+      let dy = Math.abs(e.clientY - startY);
+      if (dx > 60 && dy < 40) { // swipe right
+        swiped = true;
+        startReply(msg);
+      }
+    }
+  });
+  div.addEventListener('mouseup', () => { startX = null; startY = null; swiped = false; });
+}
+
+function startReply(msg) {
+  replyToMsg = msg;
+  document.getElementById('replyPreview').classList.remove('hidden');
+  // Always show username (never "You")
+  let name = msg.from === friendId && friendProfile.username
+    ? "@" + friendProfile.username
+    : (msg.username ? "@" + msg.username : msg.from);
+  let replyText = msg.text ? msg.text.slice(0, 50) : (msg.fileType ? msg.fileType.split('/')[0].toUpperCase() : 'Media');
+  document.getElementById('replyText').textContent = `${name}: ${replyText}`;
+  document.getElementById('chatInput').focus();
+}
+function cancelReply() {
+  replyToMsg = null;
+  document.getElementById('replyPreview').classList.add('hidden');
+}
+chatInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    document.getElementById('chatForm').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}));
+  }
+});
+function openReportModal() {
+  document.getElementById('reportModal').classList.remove('hidden');
+  document.getElementById('reportReason').value = '';
+}
+function closeReportModal() {
+  document.getElementById('reportModal').classList.add('hidden');
+}
+async function submitReport() {
+  const reason = document.getElementById('reportReason').value.trim();
+  if (!reason) {
+    showPopup("Please enter a reason for reporting.", "error");
+    return;
+  }
+  const res = await fetch('/api/report', {
+    method: 'POST',
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      reporter: currentUser.userId,
+      reported: friendId,
+      reason,
+      time: Date.now()
+    })
+  });
+  if (res.ok) {
+    showPopup("Report submitted. Thank you!", "success");
+    closeReportModal();
+  } else {
+    showPopup("Failed to submit report.", "error");
+  }
+}
+function formatDateSeparator(date) {
+  const now = new Date();
+  const msgDate = new Date(date);
+  const diff = now.setHours(0,0,0,0) - msgDate.setHours(0,0,0,0);
+  if (diff === 0) return "Today";
+  if (diff === 86400000) return "Yesterday";
+  return msgDate.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+</script>
+</body>
+</html>

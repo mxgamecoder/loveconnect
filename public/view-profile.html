@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Profile</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+    .popup {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      min-width: 280px;
+      background: #fff;
+      color: #333;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      padding: 12px 18px;
+      z-index: 9999;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: fadeIn 0.3s;
+    }
+    .popup-success { border-left: 5px solid #ec4899; }
+    .popup-error { border-left: 5px solid #ef4444; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .hidden { display: none !important; }
+#commentModal {
+  background: #000; /* instead of pure black */
+  color: white; /* ensure text is visible */
+}
+#commentList {
+  flex: 1;           /* take remaining height */
+  overflow-y: auto;  /* enable scrolling */
+  padding-right: 8px; /* optional: prevent scrollbar overlap */
+}
+  </style>
+</head>
+<body class="min-h-screen pt-10 transition-colors duration-300">
+  <div id="popup-container"></div>
+    <!-- Loading Spinner -->
+<div id="loadingSpinner" class="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+  <div class="w-12 h-12 border-4 border-t-transparent border-white rounded-full animate-spin"></div>
+</div>
+
+  <!-- Top Bar -->
+  <div class="flex items-center gap-3 px-6 py-3">
+    <button onclick="history.back()" class="p-2 rounded-full hover:bg-gray-700/30 dark:hover:bg-gray-200/30">
+      <!-- back icon -->
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+    </button>
+    <span class="text-xl font-bold" id="pageTitle">View Profile</span>
+  </div>
+
+<!-- Profile Section -->
+<div id="profileContainer" class="w-full max-w-4xl mx-auto px-6 hidden">
+  <div class="flex gap-6 items-start">
+    <img id="profileAvatar" class="w-24 h-24 rounded-full border-4 object-cover" src="" alt="Profile" />
+    <div>
+      <div class="text-2xl font-bold mb-1" id="profileName"></div>
+      <div class="text-sm opacity-80 mb-2" id="profileUsername"></div>
+      <div class="mb-2" id="profileVerified"></div>
+     <a id="friendsListLink" style="text-decoration: none;">
+  <div class="mb-2"><span class="font-semibold">Total Friends:</span> <span id="profileFriends"></span></div>
+</a>
+      <div class="mb-2"><span class="font-semibold">Email:</span> <span id="profileEmail"></span></div>
+      <div class="mb-2"><span class="font-semibold">Gender:</span> <span id="profileGender"></span></div>
+      <div class="mb-2"><span class="font-semibold">DOB:</span> <span id="profileDob"></span></div>
+      <div class="mt-3" id="profileAction"></div>
+    </div>
+  </div>
+
+  <!-- Posts -->
+  <h3 class="text-xl font-bold mt-8 mb-3">Posts</h3>
+  <div id="profilePosts" class="space-y-4"></div>
+</div>
+
+<!-- Comment Modal -->
+<div id="commentModal" class="fixed inset-0 bg-black/80 hidden z-50 flex flex-col">
+  <!-- Header -->
+  <div class="flex items-center justify-between p-3 border-b bg-gray-900 text-white">
+    <span class="font-semibold">Comments</span>
+    <button onclick="closeComments()" class="hover:text-pink-400 text-xl">✖</button>
+  </div>
+
+  <!-- Scrollable comment list -->
+  <div class="flex-1 overflow-auto p-4 space-y-3" id="commentList"></div>
+
+  <!-- Comment Input -->
+  <div class="flex items-center gap-2 p-3 border-t bg-gray-900">
+    <img id="commentUserAvatar" class="w-8 h-8 rounded-full" src="" />
+    <input id="newCommentInput"
+           type="text"
+           placeholder="Write a comment..."
+           class="flex-1 rounded-full px-3 py-1 text-sm border text-black"/>
+    <button onclick="submitComment()" 
+            class="px-3 py-1 bg-pink-500 text-white rounded">Send</button>
+  </div>
+</div>
+
+  <script>
+function showPopup(message, type = 'success') {
+  const popup = document.createElement('div');
+  popup.className = `popup popup-${type}`;
+  popup.innerHTML = type === 'success'
+    ? `<svg width="20" height="20" fill="#ec4899"><circle cx="10" cy="10" r="10"/></svg>`
+    : `<svg width="20" height="20" fill="#ef4444"><circle cx="10" cy="10" r="10"/></svg>`;
+  popup.innerHTML += `<span>${message}</span>`;
+  document.body.appendChild(popup);
+  setTimeout(() => popup.remove(), 2500);
+}
+
+// Load theme from localStorage or system preference
+    const theme = JSON.parse(localStorage.getItem('theme')) || { bg: '#111827', accent: '#ec4899' }; 
+    document.body.style.background = theme.bg;
+    document.body.style.color = getContrast(theme.bg);
+
+    // Set text color for all content based on contrast
+function applyContrastText() {
+  const contrastColor = getContrast(theme.bg);
+  document.getElementById('profileContainer').style.color = contrastColor;
+  document.querySelectorAll('#profileContainer *').forEach(el => {
+    el.style.color = contrastColor;
+  });
+}
+applyContrastText();
+
+    // apply accent
+    document.querySelectorAll('#pageTitle, #profileName, h3').forEach(el => {
+      el.style.color = theme.accent;
+    });
+    document.querySelectorAll('.border-4').forEach(el => {
+      el.style.borderColor = theme.accent;
+    });
+    document.querySelectorAll('.bg-pink-600').forEach(el => {
+      el.style.background = theme.accent;
+    });
+
+    // Detect text contrast (light/dark based on bg color)
+    function getContrast(hex) {
+      hex = hex.replace('#', '');
+      const r = parseInt(hex.substr(0,2),16);
+      const g = parseInt(hex.substr(2,2),16);
+      const b = parseInt(hex.substr(4,2),16);
+      const brightness = (r*299 + g*587 + b*114) / 1000;
+      return brightness > 125 ? '#111' : '#fff';
+    }
+
+    // Your existing profile load logic...
+    const params = new URLSearchParams(window.location.search);
+    const userId = params.get('userId');
+    let accounts = JSON.parse(localStorage.getItem('userAccounts') || '[]');
+    let idx = parseInt(localStorage.getItem('currentAccountIndex') || '0');
+    let currentUser = accounts[idx];
+async function loadProfile() {
+  document.getElementById('loadingSpinner').style.display = 'flex'; // show spinner
+  document.getElementById('profileContainer').classList.add('hidden'); // keep layout hidden
+
+  try {
+    const currentUser = await getCurrentUser();
+    const res = await fetch(`/api/profile/${userId}?viewerId=${currentUser.userId}`);
+
+    if (!res.ok) return;
+    const user = await res.json();
+
+    // Fill profile info...
+    document.getElementById('profileAvatar').src = user.avatar;
+    document.getElementById('profileName').textContent = user.fullName;
+    document.getElementById('profileUsername').textContent = '@' + user.username;
+    document.getElementById('profileVerified').innerHTML = user.isVerified
+      ? '<span class="text-green-500 font-bold">Verified</span>'
+      : '';
+    document.getElementById('profileFriends').textContent = user.friends ? user.friends.length : 0;
+    document.getElementById('profileEmail').textContent = user.email;
+    document.getElementById('profileGender').textContent = user.gender;
+    document.getElementById('profileDob').textContent = new Date(user.dob).toLocaleDateString();
+
+    // Action button logic...
+    let actionHTML = '';
+    if (userId === currentUser.userId) {
+      actionHTML = '<span class="font-bold">This is you</span>';
+    } else if (user.isFriend) {
+      actionHTML = '<button class="bg-gray-500 text-white px-3 py-1 rounded" disabled>Already Friends</button>';
+    } else if (user.incoming) {
+      actionHTML = `<button class="bg-green-600 text-white px-3 py-1 rounded font-semibold" onclick="confirmFriend('${user.userId}')">Confirm Request</button>`;
+    } else if (user.requested) {
+      actionHTML = '<button class="bg-yellow-500 text-white px-3 py-1 rounded font-semibold" disabled>Request Sent</button>';
+    } else {
+      actionHTML = `<button class="text-white px-3 py-1 rounded font-semibold" style="background:${theme.accent}" onclick="addFriend('${user.userId}')">Add Friend</button>`;
+    }
+    document.getElementById('profileAction').innerHTML = actionHTML;
+
+    const postsRes = await fetch(`/api/user-posts/${userId}?viewerId=${currentUser.userId}`);
+if (postsRes.ok) {
+  const posts = await postsRes.json();
+  localStorage.setItem("lastLoadedPosts", JSON.stringify(posts));
+  if (posts.length === 0) {
+    document.getElementById('profilePosts').innerHTML =
+      `<div class="text-center font-medium opacity-70">No post yet.</div>`;
+  } else {
+    document.getElementById('profilePosts').innerHTML = posts.map(post => {
+      // map privacy to emoji
+let privacyEmoji = post.privacy === "everyone" ? "🌍 Public" :
+                   post.privacy === "friends" ? "👥 Friends" :
+                   "🔒 Only Me";
+
+      // header
+let header = `
+  <div class="flex items-center justify-between mb-2">
+    <div class="flex items-center gap-2">
+      <img src="${user.avatar}" class="w-10 h-10 rounded-full object-cover"/>
+      <div>
+        <div class="font-semibold">${user.fullName}</div>
+        <div class="text-xs text-gray-500 flex items-center gap-1">
+          <span>${new Date(post.createdAt).toLocaleString()}</span> • 
+          <span>${privacyEmoji}</span>
+        </div>
+      </div>
+    </div>
+    <div class="relative">
+      <button class="three-dot-btn" onclick="togglePostMenu(event, '${post.postId}')">
+        <svg width="24" height="24" fill="none"><circle cx="5" cy="12" r="2" fill="#888"/><circle cx="12" cy="12" r="2" fill="#888"/><circle cx="19" cy="12" r="2" fill="#888"/></svg>
+      </button>
+      <div id="postMenu-${post.postId}" class="hidden absolute right-0 top-8 bg-white rounded shadow z-50 min-w-[120px]">
+        <button onclick="deletePost('${post.postId}')" class="block w-full text-left px-4 py-2 hover:bg-red-100 text-red-600">Delete</button>
+        <button onclick="editPrivacy('${post.postId}')" class="block w-full text-left px-4 py-2 hover:bg-pink-100 text-pink-600">Edit Privacy</button>
+      </div>
+    </div>
+  </div>
+`;
+
+// body
+let body = "";
+if (post.type === "text") {
+  body = `
+    <div class="text-lg leading-snug mb-2">${post.message}</div>
+    ${post.hashtags?.length ? 
+      `<div class="text-blue-400 text-sm mb-3">
+         ${post.hashtags.map(tag => `#${tag}`).join(" ")}
+       </div>` 
+     : ""}
+  `;
+} else if (post.type === "picture") {   // ✅ align with backend
+  body = `
+    <div class="mb-2">
+      <img src="${post.mediaUrl}" class="w-full rounded-lg"/>
+    </div>
+    ${post.caption ? `<div class="mb-2">${post.caption}</div>` : ""}
+    ${post.hashtags?.length ? 
+      `<div class="text-blue-400 text-sm mb-3">
+         ${post.hashtags.map(tag => `#${tag}`).join(" ")}
+       </div>` 
+     : ""}
+  `;
+} else if (post.type === "video") {
+  body = `
+    <div class="mb-2">
+      <video src="${post.mediaUrl}" class="w-full rounded-lg" controls></video>
+    </div>
+    ${post.caption ? `<div class="mb-2">${post.caption}</div>` : ""}
+    ${post.hashtags?.length ? 
+      `<div class="text-blue-400 text-sm mb-3">
+         ${post.hashtags.map(tag => `#${tag}`).join(" ")}
+       </div>` 
+     : ""}
+  `;
+      }
+
+      // Like count logic
+let likeCount = post.likes?.length || 0;
+let likeText = likeCount > 0 ? `👍 ${likeCount}` : "👍";
+let liked = post.likes?.includes(currentUser.userId);
+let commentCount = post.comments?.length || 0;
+let shareCount = post.shares || 0;
+
+let actions = `
+  <div class="flex justify-around text-gray-500 border-t border-b py-2 text-sm">
+    <button class="flex items-center gap-1 hover:text-blue-500" onclick="likePost('${post.postId}', this)">
+      ${liked ? '<span style="color:#ec4899">👍</span>' : '👍'}${likeCount > 0 ? ` ${likeCount}` : ""}
+    </button>
+    <button class="flex items-center gap-1 hover:text-blue-500" onclick="sharePost('${post.postId}', this)">
+      ↗️ Share${shareCount > 0 ? ` ${shareCount}` : ""}
+    </button>
+    ${post.allowComments !== "off" ? `
+      <button class="flex items-center gap-1 hover:text-blue-500" onclick="openComments('${post.postId}')">
+        💬 Comment${commentCount > 0 ? ` ${commentCount}` : ""}
+      </button>
+    ` : ""}
+  </div>
+`;
+
+// Comments section
+let commentsHTML = "";
+
+// comment box
+let commentBox = post.allowComments !== "off" ? `
+  <div class="flex items-center gap-2 mt-2">
+    <img src="${currentUser.avatar}" class="w-8 h-8 rounded-full"/>
+    <input id="comment-input-${post.postId}" 
+           type="text" 
+           placeholder="Write a comment..." 
+           class="flex-1 rounded-full px-3 py-1 text-sm border bg-white text-black"/>
+    <button onclick="addComment('${post.postId}', this)" class="px-3 py-1 rounded bg-pink-500 text-white">Send</button>
+  </div>
+` : "";
+
+      return `
+        <div class="bg-white/10 rounded-xl p-4 shadow-md">
+          ${header}
+          ${body}
+          ${actions}
+          ${commentBox}
+          ${commentsHTML}
+        </div>
+      `;
+    }).join("");
+  }
+} else {
+      document.getElementById('profilePosts').innerHTML =
+        `<div class="text-center font-medium" style="color:${getContrast(theme.bg)};opacity:0.7">No post yet.</div>`;
+    }
+
+    document.getElementById('friendsListLink').href = `friends-list.html?userId=${userId}`;
+
+    // ✅ reveal layout only after content is ready
+    document.getElementById('profileContainer').classList.remove('hidden');
+  } finally {
+    // hide spinner
+    document.getElementById('loadingSpinner').style.display = 'none';
+  }
+}
+    async function getCurrentUser() {
+  // Get current userId from localStorage
+  let accounts = JSON.parse(localStorage.getItem('userAccounts') || '[]');
+  let idx = parseInt(localStorage.getItem('currentAccountIndex') || '0');
+  let userId = accounts[idx]?.userId;
+  if (!userId) return null;
+  const res = await fetch(`/api/profile/${userId}`);
+  if (!res.ok) return null;
+  return await res.json();
+}
+
+    window.addFriend = async function(targetId) {
+      await fetch('/api/add-friend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.userId, targetId })
+      });
+      loadProfile();
+    };
+    window.confirmFriend = async function(requesterId) {
+      await fetch('/api/confirm-friend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.userId, requesterId })
+      });
+      loadProfile();
+    };
+
+window.likePost = async function(postId, btn) {
+  btn.disabled = true;
+  const res = await fetch(`/api/post/${postId}/like`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: currentUser.userId })
+  });
+  btn.disabled = false;
+  if (res.ok) {
+    const data = await res.json();
+    btn.innerHTML = (data.likes > 0 ? `👍 ${data.likes}` : "👍");
+    showPopup(data.likes > 0 ? "Liked!" : "Unliked!", "success");
+  } else {
+    showPopup("Failed to like post.", "error");
+  }
+};
+
+window.sharePost = async function(postId, btn) {
+  const url = `${window.location.origin}/post-view.html?postId=${postId}`;
+  navigator.clipboard.writeText(url);
+  showPopup("Share link copied!");
+
+  // Increment share count in backend only once per user
+  const res = await fetch(`/api/post/${postId}/share`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: currentUser.userId })
+  });
+  if (res.ok) {
+    const data = await res.json();
+    btn.innerHTML = `↗️ Share${data.shares > 0 ? ` ${data.shares}` : ""}`;
+  }
+};
+
+window.addComment = async function(postId, btn) {
+  const input = document.getElementById(`comment-input-${postId}`);
+  const text = input.value.trim();
+  if (!text) return showPopup("Type something!", "error");
+  btn.disabled = true;
+  btn.textContent = "Sending...";
+
+  const res = await fetch(`/api/post/${postId}/comment`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: currentUser.userId, text })
+  });
+
+  btn.disabled = false;
+  btn.textContent = "Send";
+
+  if (res.ok) {
+    input.value = "";
+    showPopup("Comment added!", "success");
+
+    // Update comment count in post card
+    const posts = JSON.parse(localStorage.getItem("lastLoadedPosts") || "[]");
+    const post = posts.find(p => p.postId === postId);
+    if (post) {
+      post.comments = post.comments || [];
+      post.comments.push({ userId: currentUser.userId, text, avatar: currentUser.avatar, username: currentUser.username, createdAt: new Date() });
+      updateCommentCount(postId, post.comments.length);
+      localStorage.setItem("lastLoadedPosts", JSON.stringify(posts));
+    }
+  } else {
+    showPopup("Failed to add comment.", "error");
+  }
+};
+
+window.replyComment = async function(postId, commentId, btn) {
+  const input = btn.previousElementSibling;
+  const text = input.value.trim();
+  if (!text) return showPopup("Type something!", "error");
+  btn.disabled = true;
+  const res = await fetch(`/api/post/${postId}/comment/${commentId}/reply`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: currentUser.userId, text })
+  });
+  btn.disabled = false;
+  if (res.ok) {
+    input.value = "";
+    showPopup("Reply added!", "success");
+    loadProfile(); // reload comments
+  } else {
+    showPopup("Failed to add reply.", "error");
+  }
+};
+
+let activePostId = null;
+let activePost = null;
+
+// Open comments modal for a post
+window.openComments = function(postId) {
+  activePostId = postId;
+  const posts = JSON.parse(localStorage.getItem("lastLoadedPosts") || "[]");
+  activePost = posts.find(p => p.postId === postId);
+
+  if (!activePost) {
+    showPopup("Post not found.", "error");
+    return;
+  }
+
+  document.getElementById("commentModal").classList.remove("hidden");
+  document.getElementById("commentUserAvatar").src = currentUser.avatar;
+  document.getElementById("newCommentInput").value = "";
+  delete document.getElementById("newCommentInput").dataset.replyTo;
+  renderComments(activePost.comments || []);
+};
+
+// Close comment modal
+window.closeComments = function() {
+  document.getElementById("commentModal").classList.add("hidden");
+  document.getElementById("commentList").innerHTML = "";
+  activePostId = null;
+  activePost = null;
+};
+
+// Render all comments
+function renderComments(comments) {
+  const container = document.getElementById("commentList");
+  if (!comments || comments.length === 0) {
+    container.innerHTML = `<div class="text-center text-gray-400">Be the first to comment</div>`;
+    return;
+  }
+
+  container.innerHTML = comments.map(c => renderComment(c)).join("");
+}
+
+// Render a single comment
+function renderComment(comment) {
+  const hasReplies = comment.replies && comment.replies.length > 0;
+
+const repliesHTML = hasReplies ? `
+  <button onclick="toggleReplies('${comment.commentId}')" 
+          class="ml-8 text-xs text-gray-500 hover:underline mt-1">
+    View Replies (${comment.replies.length})
+  </button>
+  <div id="replies-${comment.commentId}" class="ml-12 mt-1 space-y-1 hidden">
+    ${comment.replies.map(r => `
+      <div class="flex items-center gap-2">
+        <a href="view-profile.html?userId=${r.userId}">
+          <img src="${r.avatar}" class="w-5 h-5 rounded-full cursor-pointer"/>
+        </a>
+        <span class="font-semibold">${r.username}</span>
+        <span class="text-xs text-gray-500">${new Date(r.createdAt).toLocaleString()}</span>
+        <span>: ${r.text}</span>
+      </div>
+    `).join("")}
+  </div>
+` : '';
+
+return `
+  <div class="rounded-lg p-2">
+    <div class="flex items-center gap-2">
+      <a href="view-profile.html?userId=${comment.userId}">
+        <img src="${comment.avatar}" class="w-6 h-6 rounded-full cursor-pointer"/>
+      </a>
+      <span class="font-semibold">${comment.username}</span>
+      <span class="text-xs text-gray-500">${new Date(comment.createdAt).toLocaleString()}</span>
+    </div>
+    <div class="ml-8 mt-1">${comment.text}</div>
+    <button onclick="showReplyBox('${comment.commentId}')" 
+            class="ml-8 text-xs text-blue-500 hover:underline mt-1">
+      Reply
+    </button>
+    ${repliesHTML}
+  </div>
+`;
+}
+
+function toggleReplies(commentId) {
+  const el = document.getElementById(`replies-${commentId}`);
+  if (!el) return;
+  el.classList.toggle('hidden');
+}
+
+// Focus main comment input and set as reply
+function showReplyBox(commentId) {
+  const comment = activePost.comments.find(c => c.commentId === commentId);
+  if (!comment) return;
+
+  const input = document.getElementById("newCommentInput");
+  input.value = ""; // clear any previous text
+  input.focus();
+  input.dataset.replyTo = commentId; // mark as reply
+  input.placeholder = `Reply to ${comment.username}...`; // show username in placeholder
+}
+
+window.submitComment = async function() {
+  const input = document.getElementById("newCommentInput");
+  const sendBtn = input.nextElementSibling; // The Send button
+  const text = input.value.trim();
+  if (!text) return showPopup("Type something!", "error");
+
+  sendBtn.disabled = true;
+  const originalText = sendBtn.textContent;
+  sendBtn.textContent = "Sending...";
+
+  const replyTo = input.dataset.replyTo;
+  let url = `/api/post/${activePostId}/comment`;
+  
+  // If replying, use reply endpoint
+  if (replyTo) {
+    url = `/api/post/${activePostId}/comment/${replyTo}/reply`;
+  }
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: currentUser.userId, text })
+  });
+
+  sendBtn.disabled = false;
+  sendBtn.textContent = originalText;
+
+  if (res.ok) {
+    const updated = await res.json();
+    activePost.comments = updated.comments; // refresh local comments
+    renderComments(activePost.comments);
+    updateCommentCount(activePostId, activePost.comments.length); // <-- update count
+    input.value = "";
+    input.placeholder = "Write a comment..."; // reset placeholder
+    delete input.dataset.replyTo; // reset reply
+  } else {
+    showPopup("Failed to submit comment.", "error");
+  }
+};
+
+window.sendReply = async function(commentId, btn) {
+  const input = btn.previousElementSibling;
+  const text = input.value.trim();
+  if (!text) return;
+
+  const res = await fetch(`/api/post/${activePostId}/comment/${commentId}/reply`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: currentUser.userId, text })
+  });
+
+  if (res.ok) {
+    input.value = "";
+    const updated = await res.json();
+    activePost.comments = updated.comments; // refresh local comments
+    renderComments(activePost.comments);
+    updateCommentCount(activePostId, activePost.comments.length); // <-- update count
+  }
+};
+
+function updateCommentCount(postId, newCount) {
+  // Find the comment button for this post and update its text
+  const postCards = document.querySelectorAll("#profilePosts > div");
+  postCards.forEach(card => {
+    const btns = card.querySelectorAll('button');
+    btns.forEach(btn => {
+      // Match the button by its onclick attribute
+      if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(`openComments('${postId}')`)) {
+        btn.innerHTML = `💬 Comment${newCount > 0 ? ` ${newCount}` : ""}`;
+      }
+    });
+  });
+}
+
+document.getElementById("newCommentInput").addEventListener("keydown", function(e) {
+  const input = this;
+  // Check for Backspace or Delete
+  if ((e.key === "Backspace" || e.key === "Delete") && input.placeholder.startsWith("Reply to")) {
+    // If input is empty, ask for confirmation
+    if (input.value === "") {
+      e.preventDefault();
+      // Show custom popup with Yes/No buttons
+      const popup = document.createElement('div');
+      popup.className = 'popup popup-error';
+      popup.innerHTML = `
+        <span>Are you sure you want to clear reply context?</span>
+        <button id="replyClearYes" class="ml-2 px-2 py-1 rounded bg-pink-500 text-white">Yes</button>
+        <button id="replyClearNo" class="ml-2 px-2 py-1 rounded bg-gray-300 text-black">No</button>
+      `;
+      document.body.appendChild(popup);
+
+      document.getElementById('replyClearYes').onclick = () => {
+        input.placeholder = "Write a comment...";
+        delete input.dataset.replyTo;
+        popup.remove();
+      };
+      document.getElementById('replyClearNo').onclick = () => {
+        popup.remove();
+      };
+    }
+  }
+});
+
+window.togglePostMenu = function(e, postId) {
+  e.stopPropagation();
+  document.querySelectorAll("[id^='postMenu-']").forEach(menu => menu.classList.add("hidden"));
+  document.getElementById(`postMenu-${postId}`).classList.toggle("hidden");
+};
+
+// Close menu if click anywhere else
+document.addEventListener("click", function(e) {
+  document.querySelectorAll("[id^='postMenu-']").forEach(menu => menu.classList.add("hidden"));
+});
+
+window.deletePost = function(postId) {
+  // Remove existing popup if any
+  const oldPopup = document.getElementById('deletePopup');
+  if (oldPopup) oldPopup.remove();
+
+  // Create popup container
+  const popup = document.createElement('div');
+  popup.id = 'deletePopup';
+  popup.style.position = 'fixed';
+  popup.style.top = '50%';
+  popup.style.left = '50%';
+  popup.style.transform = 'translate(-50%, -50%)';
+  popup.style.background = '#fff';
+  popup.style.color = '#111';
+  popup.style.padding = '20px';
+  popup.style.borderRadius = '8px';
+  popup.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+  popup.style.textAlign = 'center';
+  popup.style.zIndex = '10000';
+  popup.innerHTML = `
+    <div style="margin-bottom: 15px; font-weight: 500;">Are you sure you want to delete this post?</div>
+    <div style="display: flex; justify-content: center; gap: 10px;">
+      <button id="deleteYes" class="px-4 py-2 rounded bg-red-500 text-white">Delete</button>
+      <button id="deleteNo" class="px-4 py-2 rounded bg-gray-300 text-black">Cancel</button>
+    </div>
+  `;
+  document.body.appendChild(popup);
+
+  document.getElementById('deleteYes').onclick = async () => {
+    const res = await fetch(`/api/post/${postId}`, { method: "DELETE" });
+    popup.remove();
+    if (res.ok) {
+      showPopup("Post deleted! 🗑️", "success");
+      loadProfile();
+    } else {
+      showPopup("Failed to delete post.", "error");
+    }
+  };
+
+  document.getElementById('deleteNo').onclick = () => {
+    popup.remove();
+    showPopup("Delete cancelled.", "error");
+  };
+};
+
+window.editPrivacy = function(postId) {
+  // Remove any existing privacy popup
+  const oldPopup = document.getElementById('privacyPopup');
+  if (oldPopup) oldPopup.remove();
+
+  // Create centered popup
+  const popup = document.createElement('div');
+  popup.id = 'privacyPopup';
+  popup.style.position = 'fixed';
+  popup.style.top = '50%';
+  popup.style.left = '50%';
+  popup.style.transform = 'translate(-50%, -50%)';
+  popup.style.background = '#fff';
+  popup.style.color = '#111';
+  popup.style.zIndex = '10000';
+  popup.style.padding = '20px 16px';       // smaller padding
+  popup.style.borderRadius = '12px';
+  popup.style.boxShadow = '0 4px 24px rgba(0,0,0,0.18)';
+  popup.style.textAlign = 'center';
+  popup.style.minWidth = '280px';          // minimum width
+  popup.style.maxWidth = '320px';          // maximum width
+  popup.style.width = '90%';               // responsive width on small screens
+
+  popup.innerHTML = `
+    <div class="mb-4 text-lg font-bold">Change Privacy</div>
+    <select id="privacySelect-${postId}" class="w-full rounded border px-2 py-2 text-base mb-4" style="color:#111;">
+      <option value="everyone">🌍 Public</option>
+      <option value="friends">👥 Friends</option>
+      <option value="private">🔒 Only Me</option>
+    </select>
+    <div style="display: flex; justify-content: center; gap: 10px;">
+      <button onclick="savePrivacy('${postId}')" class="px-4 py-2 rounded bg-pink-500 text-white font-semibold">Save</button>
+      <button onclick="document.getElementById('privacyPopup').remove()" class="px-4 py-2 rounded bg-gray-300 text-black font-semibold">Cancel</button>
+    </div>
+  `;
+  document.body.appendChild(popup);
+};
+
+window.savePrivacy = async function(postId) {
+  const select = document.getElementById(`privacySelect-${postId}`);
+  const privacy = select.value;
+
+  const res = await fetch(`/api/post/${postId}/privacy`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ privacy })
+  });
+
+  if (res.ok) {
+    // Close the privacy popup immediately
+    const popup = document.getElementById('privacyPopup');
+    if (popup) popup.remove();
+
+    // Show success message
+    showPopup("Privacy updated!", "success");
+
+    // Reload the posts/profile after a short delay so user sees the popup
+    setTimeout(() => {
+      loadProfile();
+    }, 500); // 0.5s delay
+  } else {
+    showPopup("Failed to update privacy.", "error");
+  }
+}; 
+
+loadProfile();
+  </script>
+</body>
+</html>

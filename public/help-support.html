@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Help & Support | LoveConnect</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="./script/help-support.js"></script>
+  <style>
+  #popup-container {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+  }
+  .popup-success { border-color: #ec4899; }
+  .popup-error { border-color: #ef4444; }
+</style>
+
+</head>
+<body class="bg-pink-50 min-h-screen flex flex-col items-center pt-10">
+    <div id="popup-container"></div>
+  <div class="flex items-center w-full max-w-lg px-4 mb-6">
+    <a href="settings.html" class="text-pink-600 hover:text-pink-800 flex items-center">
+      <!-- Heroicons: Arrow Left -->
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+      <span class="sr-only">Back</span>
+    </a>
+    <h2 class="text-2xl font-bold text-pink-600">Help & Support</h2>
+  </div>
+  <div class="w-full max-w-lg px-4 bg-white rounded-lg shadow p-6">
+    <h3 class="text-xl font-semibold text-pink-600 mb-4">How can we help you?</h3>
+    <p class="mb-6 text-gray-700">If you have any questions, issues, or need assistance, please check our FAQ below or contact support.</p>
+    <div class="mb-6">
+      <h4 class="font-bold text-gray-800 mb-2">Frequently Asked Questions</h4>
+      <ul class="list-disc pl-6 text-gray-700 space-y-2">
+        <li>How do I reset my password?</li>
+        <li>How do I change my profile picture?</li>
+        <li>How do I block or unblock users?</li>
+        <li>How do I delete my account?</li>
+      </ul>
+    </div>
+    <div>
+      <h4 class="font-bold text-gray-800 mb-2">Contact Support</h4>
+      <form id="supportForm" class="space-y-4">
+        <input type="email" id="supportEmail" class="w-full border rounded px-3 py-2" placeholder="Your email" required />
+        <textarea id="supportMessage" class="w-full border rounded px-3 py-2" rows="4" placeholder="Describe your issue..." required></textarea>
+        <button type="submit" id="supportSendBtn" class="w-full py-2 rounded bg-pink-600 text-white font-bold hover:bg-pink-700">Send Message</button>
+      </form>
+      <div id="supportStatus" class="mt-4 text-center text-sm"></div>
+      <p class="mt-4 text-gray-500 text-sm">We typically respond within 24 hours.</p>
+    </div>
+  </div>
+</body>
+</html>

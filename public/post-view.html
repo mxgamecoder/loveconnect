@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Post View</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+  <div id="postContainer" class="max-w-xl mx-auto mt-10"></div>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const postId = params.get('postId');
+    async function loadPost() {
+      const res = await fetch(`/api/post/${postId}`);
+      if (!res.ok) return document.getElementById('postContainer').textContent = "Post not found.";
+      const post = await res.json();
+      let body = post.type === "text" ? `<div>${post.message}</div>` :
+        post.type === "picture" ? `<img src="${post.mediaUrl}" class="w-full rounded"/>` :
+        `<video src="${post.mediaUrl}" controls class="w-full rounded"></video>`;
+      document.getElementById('postContainer').innerHTML = `
+        <div class="bg-white rounded p-4 shadow">
+          <div class="mb-2">${body}</div>
+          <div class="text-sm text-gray-500">Posted: ${new Date(post.createdAt).toLocaleString()}</div>
+        </div>
+      `;
+    }
+    loadPost();
+  </script>
+</body>
+</html>

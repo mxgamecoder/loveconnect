@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign Up | LoveConnect</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+<script>
+  // Prevent access if any account is logged in
+  const accounts = JSON.parse(localStorage.getItem('userAccounts') || '[]');
+  if (accounts.length) {
+    window.location.href = 'dashboard.html';
+  }
+  // Apply theme color from localStorage
+  document.addEventListener('DOMContentLoaded', function() {
+    const color = localStorage.getItem('themeColor') || '#fdf2f8';
+    document.body.style.background = color;
+  });
+</script>
+  <style>
+    .popup {
+      position: fixed;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      min-width: 300px;
+      background: #fff;
+      color: #333;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      padding: 16px 24px;
+      z-index: 9999;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: fadeIn 0.3s;
+    }
+    .popup-success { border-left: 6px solid #ec4899; }
+    .popup-error { border-left: 6px solid #ef4444; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #ec4899;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      animation: spin 0.8s linear infinite;
+      margin: auto;
+    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    #verifyModal > div {
+      background: #fff !important;
+    }
+    /* Add this in your <style> section */
+.overlay.white-bg {
+  background: white !important; /* solid white background */
+  z-index: 100;
+}
+  </style>
+</head>
+<body class="bg-pink-50 flex items-center justify-center min-h-screen">
+  <div id="popup-container"></div>
+  <form id="signupForm" class="bg-white p-8 rounded-lg shadow-md w-full max-w-md space-y-6">
+    <h2 class="text-2xl font-bold text-pink-600 text-center">Create Account</h2>
+    <input type="text" name="fullName" placeholder="Full Name" class="w-full px-4 py-2 border rounded-md" required>
+    <div>
+      <input type="text" name="username" id="username" placeholder="Username" class="w-full px-4 py-2 border rounded-md" required>
+      <div id="usernameMsg" class="text-xs text-red-500 mt-1"></div>
+    </div>
+    <div>
+      <input type="email" name="email" id="email" placeholder="Email" class="w-full px-4 py-2 border rounded-md" required>
+      <div id="emailMsg" class="text-xs text-red-500 mt-1"></div>
+    </div>
+    <input type="password" name="password" placeholder="Password" class="w-full px-4 py-2 border rounded-md" required>
+    <div>
+      <input type="tel" name="phoneNumber" id="phoneNumber" placeholder="Phone Number (e.g. +234...)" class="w-full px-4 py-2 border rounded-md" required>
+      <div id="phoneMsg" class="text-xs text-red-500 mt-1"></div>
+    </div>
+    <select name="gender" class="w-full px-4 py-2 border rounded-md" required>
+      <option value="">Select Gender</option>
+      <option value="male">Male</option>
+      <option value="female">Female</option>
+      <option value="other">Other</option>
+    </select>
+    <input type="date" name="dob" id="dob" class="w-full px-4 py-2 border rounded-md" required>
+    <div class="flex items-center">
+      <input type="checkbox" id="terms" required class="mr-2">
+      <label for="terms" class="text-sm">I agree to the <a href="#" class="text-pink-600 underline">Terms & Conditions</a></label>
+    </div>
+    <button type="submit" class="w-full bg-pink-600 text-white py-2 rounded-md font-semibold hover:bg-pink-700">Sign Up</button>
+    <p class="text-center text-sm">Already have an account? <a href="login.html" class="text-pink-600 hover:underline">Login</a></p>
+  </form>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="overlay hidden">
+    <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-xs text-center">
+      <div class="spinner mb-4"></div>
+      <div id="loadingMsg" class="text-pink-600 font-semibold">Creating account...</div>
+    </div>
+  </div>
+
+  <!-- Verification Modal Overlay -->
+  <div id="verifyModal" class="overlay white-bg hidden">
+    <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-sm text-center" style="background: #fff;">
+      <h3 class="text-xl font-bold mb-4 text-pink-600">Verify Your Account</h3>
+      <p class="mb-4 text-gray-700">Enter the verification code sent to your email.</p>
+      <input type="text" id="verificationCode" maxlength="6" class="w-full px-4 py-2 border rounded-md mb-4" placeholder="Verification Code">
+      <button id="verifyBtn" class="w-full bg-pink-600 text-white py-2 rounded-md font-semibold hover:bg-pink-700 mb-2">Verify</button>
+      <button id="resendBtn" class="w-full bg-gray-200 text-pink-600 py-2 rounded-md font-semibold hover:bg-gray-300">Resend Code</button>
+      <div id="verifyMsg" class="text-xs text-red-500 mt-2"></div>
+    </div>
+  </div>
+
+  <script>
+    // Popup message function
+    function showPopup(message, type = 'success') {
+      const popup = document.createElement('div');
+      popup.className = `popup popup-${type}`;
+      popup.innerHTML = type === 'success'
+        ? `<svg width="20" height="20" fill="#ec4899"><circle cx="10" cy="10" r="10"/></svg>`
+        : `<svg width="20" height="20" fill="#ef4444"><circle cx="10" cy="10" r="10"/></svg>`;
+      popup.innerHTML += `<span>${message}</span>`;
+      document.getElementById('popup-container').appendChild(popup);
+      setTimeout(() => popup.remove(), 2500);
+    }
+
+    // Real-time checks
+    document.getElementById('email').onblur = async function() {
+      const email = this.value;
+      if (!email) return;
+      if (!validateEmail(email)) {
+        document.getElementById('emailMsg').textContent = 'Only gmail.com, yahoo.com, outlook.com allowed.';
+        return;
+      }
+      const res = await fetch('/api/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const msg = await res.json();
+      document.getElementById('emailMsg').textContent = res.ok ? '' : msg.message;
+    };
+
+    document.getElementById('username').onblur = async function() {
+      const username = this.value;
+      if (!username) return;
+      const res = await fetch('/api/check-username', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username })
+      });
+      const msg = await res.json();
+      document.getElementById('usernameMsg').textContent = res.ok ? '' : msg.message;
+    };
+
+    document.getElementById('phoneNumber').onblur = async function() {
+      const phoneNumber = this.value;
+      if (!phoneNumber) return;
+      if (!validatePhone(phoneNumber)) {
+        document.getElementById('phoneMsg').textContent = 'Phone must start with + and be digits only.';
+        return;
+      }
+      const res = await fetch('/api/check-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber })
+      });
+      const msg = await res.json();
+      document.getElementById('phoneMsg').textContent = res.ok ? '' : msg.message;
+    };
+
+    // Validation helpers
+    function validateEmail(email) {
+      return /^[\w.-]+@(gmail\.com|yahoo\.com|outlook\.com)$/i.test(email);
+    }
+    function validatePhone(phone) {
+      return /^\+\d{7,15}$/.test(phone);
+    }
+    function validateDOB(dob) {
+      const minDate = new Date();
+      minDate.setFullYear(minDate.getFullYear() - 12);
+      return new Date(dob) <= minDate;
+    }
+
+    // Signup
+    let signupUserId = null;
+    document.getElementById('signupForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const form = e.target;
+      // Validate all fields
+      let valid = true;
+      document.getElementById('emailMsg').textContent = '';
+      document.getElementById('usernameMsg').textContent = '';
+      document.getElementById('phoneMsg').textContent = '';
+      if (!validateEmail(form.email.value)) {
+        document.getElementById('emailMsg').textContent = 'Only gmail.com, yahoo.com, outlook.com allowed.';
+        valid = false;
+      }
+      if (!validatePhone(form.phoneNumber.value)) {
+        document.getElementById('phoneMsg').textContent = 'Phone must start with + and be digits only.';
+        valid = false;
+      }
+      if (!validateDOB(form.dob.value)) {
+        showPopup('You must be at least 12 years old.', 'error');
+        valid = false;
+      }
+      if (!form.terms.checked) {
+        showPopup('You must agree to the Terms & Conditions.', 'error');
+        valid = false;
+      }
+      if (!valid) return;
+
+      document.getElementById('loadingMsg').textContent = 'Creating account...';
+      document.getElementById('loadingOverlay').classList.remove('hidden');
+      const data = {
+        fullName: form.fullName.value,
+        username: form.username.value,
+        email: form.email.value,
+        password: form.password.value,
+        phoneNumber: form.phoneNumber.value,
+        gender: form.gender.value,
+        dob: form.dob.value
+      };
+      const res = await fetch('/api/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      const msg = await res.json();
+      document.getElementById('loadingOverlay').classList.add('hidden');
+      if (res.ok) {
+        signupUserId = msg.userId;
+        showPopup(msg.message, 'success');
+        document.getElementById('verifyModal').classList.remove('hidden');
+      } else {
+        if (msg.type === 'email') document.getElementById('emailMsg').textContent = msg.message;
+        if (msg.type === 'username') document.getElementById('usernameMsg').textContent = msg.message;
+        if (msg.type === 'phone') document.getElementById('phoneMsg').textContent = msg.message;
+        showPopup(msg.message, 'error');
+      }
+    };
+
+    // Verification
+    document.getElementById('verifyBtn').onclick = async function() {
+      const code = document.getElementById('verificationCode').value;
+      if (!code) {
+        document.getElementById('verifyMsg').textContent = 'Please enter the code.';
+        return;
+      }
+      document.getElementById('verifyMsg').textContent = '';
+      document.getElementById('loadingMsg').textContent = 'Verifying...';
+      document.getElementById('loadingOverlay').classList.remove('hidden');
+      const res = await fetch('/api/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: signupUserId, code })
+      });
+      const msg = await res.json();
+      document.getElementById('loadingOverlay').classList.add('hidden');
+      if (res.ok) {
+        showPopup(msg.message, 'success');
+        setTimeout(() => window.location.href = 'login.html', 2000);
+      } else {
+        document.getElementById('verifyMsg').textContent = msg.message;
+        showPopup(msg.message, 'error');
+      }
+    };
+
+    // Resend code
+    document.getElementById('resendBtn').onclick = async function() {
+      document.getElementById('verifyMsg').textContent = '';
+      document.getElementById('loadingMsg').textContent = 'Resending code...';
+      document.getElementById('loadingOverlay').classList.remove('hidden');
+      const res = await fetch('/api/resend-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: signupUserId })
+      });
+      const msg = await res.json();
+      document.getElementById('loadingOverlay').classList.add('hidden');
+      if (res.ok) {
+        showPopup(msg.message, 'success');
+      } else {
+        showPopup(msg.message, 'error');
+      }
+    };
+  </script>
+</body>
+</html>

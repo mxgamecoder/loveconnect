@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard | LoveConnect</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="./css/dashboard.css">
+    <script src="/socket.io/socket.io.js"></script>
+  <script src="./script/dashboard.js"></script>
+</head>
+<body class="bg-pink-50 min-h-screen relative">
+<header class="fixed top-0 left-0 w-full z-40 text-white px-4 py-4 flex justify-between items-center bg-pink-500 shadow">
+<div class="flex items-center gap-3 relative w-full">
+  <!-- Main Avatar -->
+  <img id="headerAvatarMain" src="" alt="Avatar" 
+       class="w-12 h-12 rounded-full border-2 border-pink-500 object-cover shrink-0" />
+  <div id="otherStatusesBar" 
+       class="flex gap-2 overflow-x-auto no-scrollbar flex-1 py-1">
+  </div>
+  <span id="headerOnlineDot" 
+    class="absolute bottom-1 left-9 w-4 h-4 rounded-full border-2 border-white bg-pink-500 flex items-center justify-center hidden">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="#fff">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6" />
+    </svg>
+  </span>
+</div>
+    <div class="flex items-center gap-4">
+      <!-- Notification Icon -->
+      <button class="relative" title="Notifications" style="background:none;border:none;">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="#fff">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+      </button>
+      <!-- Avatar -->
+      <img id="headerAvatar" src="" alt="Avatar" class="w-10 h-10 rounded-full cursor-pointer border-2 border-white" onclick="toggleModal()" />
+      <!-- Mobile -->
+<button onclick="logout()" 
+  class="block md:hidden p-2 rounded-full bg-white hover:bg-pink-100">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-pink-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V5m0 14a2 2 0 11-4 0m4-14a2 2 0 10-4 0" />
+  </svg>
+</button>
+
+<!-- Desktop -->
+<button onclick="logout()" 
+  class="hidden md:block bg-white text-pink-600 px-4 py-2 rounded hover:bg-pink-100 font-semibold">
+  Logout
+</button>
+    </div>
+    <div id="miniModal" class="modal hidden" style="min-width:200px; max-width:200px; padding:12px;">
+  <div class="flex items-center gap-3 mb-3 w-full">
+    <img id="modalAvatar" src="" alt="Profile" class="w-10 h-10 rounded-full border-2 border-pink-500 object-cover" />
+    <div>
+      <div class="font-bold text-pink-600 text-sm" id="modalName"></div>
+      <div class="text-xs text-gray-500" id="modalStatus"></div>
+    </div>
+  </div>
+  <div id="otherAccounts" class="mb-2 w-full"></div>
+  <button class="modal-btn text-center" onclick="addAccount(event)">Add Account</button>
+</div>
+  </header>
+<main class="max-w-xl mx-auto mt-10 rounded-lg shadow-md p-8 text-center w-full pb-28 pt-20">
+  <div id="accountSwitcher" class="mb-6"></div>
+  <div id="dashboardPosts" class="space-y-4"></div>
+</main>
+  <div class="bottom-bar flex justify-between items-center fixed bottom-0 left-0 w-full bg-white shadow px-2 py-2 z-50 overflow-x-auto no-scrollbar space-x-6" style="max-width:600px;margin:auto;right:0;">
+  <a class="icon-btn flex flex-col items-center" title="Settings" href="settings.html">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="#ec4899">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m0-6v2m6.364-1.636l1.414 1.414m-12.728 0l-1.414-1.414m12.728 0l1.414-1.414m-12.728 0l-1.414 1.414M12 9V7m0 10v-2m6.364 1.636l1.414-1.414m-12.728 0l-1.414 1.414" />
+    </svg>
+    <span class="text-xs">Settings</span>
+  </a>
+  <a class="icon-btn flex flex-col items-center" title="Reels" href="reels.html">
+    <!-- Reels Icon (Film) -->
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="#ec4899">
+      <rect x="3" y="7" width="18" height="10" rx="2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="7" cy="12" r="1" fill="#ec4899"/>
+      <circle cx="17" cy="12" r="1" fill="#ec4899"/>
+    </svg>
+    <span class="text-xs">Reels</span>
+  </a>
+  <a class="icon-btn flex flex-col items-center" title="Create Post" href="create-post.html">
+    <!-- Plus Icon -->
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="#ec4899">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+    </svg>
+    <span class="text-xs">Post</span>
+  </a>
+  <a class="icon-btn flex flex-col items-center" title="Follow" href="follow.html">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="#ec4899">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9a3 3 0 11-6 0 3 3 0 016 0zm-6 7a6 6 0 00-6 6h12a6 6 0 00-6-6zm6-3v6m3-3h-6" />
+    </svg>
+    <span class="text-xs">Follow</span>
+  </a>
+<a class="icon-btn flex flex-col items-center" title="Message" href="chat.html">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="#ec4899">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.77 9.77 0 01-4-.8l-4 1 1-4A8.96 8.96 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+  </svg>
+  <span class="text-xs">Message</span>
+</a>
+  <a class="icon-btn flex flex-col items-center" title="Profile"
+   href="view-profile.html?userId={CURRENT_USER_ID}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="#ec4899">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A9.001 9.001 0 1112 21a9.001 9.001 0 01-6.879-3.196zM15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+    <span class="text-xs">Profile</span>
+  </a>
+</div>
+<!-- Comment Modal -->
+<div id="commentModal" class="fixed inset-0 bg-black/80 hidden z-50 flex flex-col">
+  <div class="flex items-center justify-between p-3 border-b bg-gray-900 text-white">
+    <span class="font-semibold">Comments</span>
+    <button onclick="closeComments()" class="hover:text-pink-400 text-xl">✖</button>
+  </div>
+  <div class="flex-1 overflow-auto p-4 space-y-3" id="commentList"></div>
+  <div class="flex items-center gap-2 p-3 border-t bg-gray-900">
+    <img id="commentUserAvatar" class="w-8 h-8 rounded-full" src="" />
+    <input id="newCommentInput"
+           type="text"
+           placeholder="Write a comment..."
+           class="flex-1 rounded-full px-3 py-1 text-sm border text-black"/>
+    <button onclick="submitComment()" 
+            class="px-3 py-1 bg-pink-500 text-white rounded">Send</button>
+  </div>
+</div>
+
+<!-- Fullscreen Media Modal -->
+<div id="mediaModal" class="fixed inset-0 bg-black bg-opacity-100 z-50 hidden flex items-center justify-center">
+  <button id="mediaBackBtn" class="absolute top-4 left-4 p-2 rounded-full bg-black/70 text-white z-60" style="z-index:60;">
+    <!-- Back Icon -->
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+    </svg>
+  </button>
+  <button id="mediaDownloadBtn" class="absolute top-4 right-4 p-2 rounded-full bg-black/70 text-white z-60" style="z-index:60;">
+    <!-- Download Icon -->
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+    </svg>
+  </button>
+  <div id="mediaContent" class="max-w-full max-h-full flex items-center justify-center"></div>
+</div>
+ <script>
+  if (!accounts.length) {
+    window.location.href = 'login.html';
+  }
+  if (currentIndex < 0 || currentIndex >= accounts.length) {
+    currentIndex = 0;
+    localStorage.setItem('currentAccountIndex', currentIndex);
+  }
+   function isMobile() {
+    return window.matchMedia("(max-width: 768px)").matches; // check small screens
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    if (isMobile() && !localStorage.getItem("navHintShown")) {
+      showPopup("👉 Swipe left to see more buttons");
+      localStorage.setItem("navHintShown", "true"); // mark as shown
+    }
+  });
+
+  function showPopup(message, type = "info") {
+    const popup = document.createElement("div");
+    popup.className = `popup popup-${type}`;
+    popup.innerHTML = `<span>${message}</span>`;
+    document.body.appendChild(popup);
+    setTimeout(() => popup.remove(), 5000);
+  }
+
+
+  function showPopup(message, type = 'success') {
+    const popup = document.createElement('div');
+    popup.className = `popup popup-${type}`;
+    popup.innerHTML = type === 'success'
+      ? `<svg width="20" height="20" fill="#ec4899"><circle cx="10" cy="10" r="10"/></svg>`
+      : `<svg width="20" height="20" fill="#ef4444"><circle cx="10" cy="10" r="10"/></svg>`;
+    popup.innerHTML += `<span>${message}</span>`;
+    document.body.appendChild(popup);
+    setTimeout(() => popup.remove(), 2500);
+  }
+
+  // Switch account
+  window.switchAccount = function(idx) {
+    currentIndex = idx;
+    localStorage.setItem('currentAccountIndex', idx);
+    loadAccount();
+    renderOtherAccounts();
+    showPopup(`Switched to @${accounts[idx].username}`, 'success');
+  };
+
+  // Shared account removal logic (logout/remove current)
+  function removeCurrentAccount() {
+    accounts.splice(currentIndex, 1);
+
+    if (accounts.length > 0) {
+      currentIndex = 0;
+      localStorage.setItem('userAccounts', JSON.stringify(accounts));
+      localStorage.setItem('currentAccountIndex', currentIndex);
+      loadAccount();
+      renderOtherAccounts();
+      showPopup('Logged out of current account.', 'success');
+    } else {
+      localStorage.removeItem('userAccounts');
+      localStorage.removeItem('currentAccountIndex');
+      localStorage.removeItem('navHintShown');
+      window.location.href = 'login.html';
+    }
+  }
+
+  // Remove account from modal
+  window.removeAccount = function() {
+    removeCurrentAccount();
+  };
+
+  // Logout button in header
+  function logout() {
+    removeCurrentAccount();
+  }
+
+  // Load current account info
+  function loadAccount() {
+    const user = accounts[currentIndex];
+document.getElementById('headerOnlineDot').classList.remove('hidden');
+    document.getElementById('headerAvatarMain').src = user.avatar;
+    document.getElementById('headerAvatar').src = user.avatar;
+    document.getElementById('modalAvatar').src = user.avatar;
+
+    document.getElementById('modalName').textContent = '@' + user.username;
+    document.getElementById('modalStatus').textContent =
+      accounts.length && currentIndex === accounts.findIndex(acc => acc.username === user.username)
+        ? "Current Account"
+        : user.email;
+          loadStatus(user.userId);
+  }
+
+  // Render other accounts in modal
+  function renderOtherAccounts() {
+    const otherDiv = document.getElementById('otherAccounts');
+    otherDiv.innerHTML = '';
+    accounts.forEach((acc, i) => {
+      if (i !== currentIndex) {
+        otherDiv.innerHTML += `
+          <div class="flex items-center mb-1 cursor-pointer hover:bg-pink-50 rounded px-2 py-1" onclick="switchAccount(${i})">
+            <img src="${acc.avatar}" alt="Avatar" class="w-5 h-5 rounded-full mr-2" />
+            <div>
+              <div class="text-xs text-pink-600 font-semibold truncate-text">@${acc.username}</div>
+              <div class="text-[10px] text-gray-500 truncate-text">${acc.email}</div>
+            </div>
+          </div>
+        `;
+      }
+    });
+  }
+
+  loadAccount();
+  renderOtherAccounts();
+
+  // Mini modal logic
+  function toggleModal() {
+    const modal = document.getElementById('miniModal');
+    modal.classList.toggle('hidden');
+  }
+
+  window.addAccount = function(e) {
+    e.stopPropagation();
+    window.location.href = 'login.html?add=true';
+  };
+
+  // Hide modal when clicking outside
+  document.addEventListener('click', function(e) {
+    const modal = document.getElementById('miniModal');
+    const avatar = document.getElementById('headerAvatar');
+    if (!modal.contains(e.target) && e.target !== avatar) {
+      modal.classList.add('hidden');
+    }
+  });
+
+document.getElementById('headerOnlineDot').onclick = function() {
+  // Show modal to ask: Text or Photo/Video
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50';
+  modal.innerHTML = `
+    <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm text-center">
+      <h3 class="text-xl font-bold text-pink-600 mb-4">Update Status</h3>
+      <button id="statusTextBtn" class="w-full bg-pink-600 text-white py-2 rounded-md font-semibold mb-2">Text Status</button>
+      <button id="statusMediaBtn" class="w-full bg-pink-600 text-white py-2 rounded-md font-semibold">Photo/Video Status</button>
+      <button id="closeStatusModal" class="w-full bg-gray-200 text-pink-600 py-2 rounded-md font-semibold mt-4">Cancel</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  document.getElementById('closeStatusModal').onclick = () => modal.remove();
+
+  document.getElementById('statusTextBtn').onclick = () => {
+    modal.innerHTML = `
+      <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm text-center">
+        <h3 class="text-xl font-bold text-pink-600 mb-4">Text Status</h3>
+        <textarea id="statusText" class="w-full border rounded px-3 py-2 mb-2" maxlength="200" rows="4" placeholder="Type your status (max 200 words)"></textarea>
+        <button id="sendTextStatus" class="w-full bg-pink-600 text-white py-2 rounded-md font-semibold">Send</button>
+        <button id="closeStatusModal2" class="w-full bg-gray-200 text-pink-600 py-2 rounded-md font-semibold mt-4">Cancel</button>
+      </div>
+    `;
+    document.getElementById('closeStatusModal2').onclick = () => modal.remove();
+    document.getElementById('sendTextStatus').onclick = async () => {
+      const text = document.getElementById('statusText').value.trim();
+      if (text.length < 1 || text.length > 200) {
+        showPopup('Status must be between 1 and 200 words.', 'error');
+        return;
+      }
+      // Save status to backend
+      await fetch('/api/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: accounts[currentIndex].userId, type: 'text', text })
+      });
+      showPopup('Status updated!', 'success');
+      modal.remove();
+      loadStatus(accounts[currentIndex].userId);// Optionally update UI
+    };
+  };
+
+document.getElementById('statusMediaBtn').onclick = () => {
+  modal.innerHTML = `
+    <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm text-center">
+      <h3 class="text-xl font-bold text-pink-600 mb-4">Photo/Video Status</h3>
+
+      <!-- Hidden File Input -->
+      <input type="file" id="statusMediaInput" accept="image/*,video/*" class="hidden" />
+
+      <!-- Upload button -->
+      <button id="customUploadBtn" 
+        class="w-full bg-pink-600 text-white py-2 rounded-md font-semibold flex items-center justify-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Upload Photo/Video
+      </button>
+
+      <!-- File selected section (hidden at first) -->
+      <div id="fileSelected" class="hidden mt-3 flex items-center justify-between bg-gray-100 p-2 rounded">
+        <span id="selectedFileName" class="text-sm text-gray-700 truncate"></span>
+        <button id="retakeBtn" class="ml-2 text-pink-600 hover:text-pink-800 flex items-center gap-1">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                  d="M4 4v6h6M20 20v-6h-6M5 19a9 9 0 1014-14l-1.5 1.5"/>
+          </svg>
+          Retake
+        </button>
+      </div>
+
+      <!-- Action buttons -->
+      <button id="sendMediaStatus" 
+        class="w-full bg-pink-600 text-white py-2 rounded-md font-semibold mt-4">Send</button>
+      <button id="closeStatusModal3" 
+        class="w-full bg-gray-200 text-pink-600 py-2 rounded-md font-semibold mt-2">Cancel</button>
+    </div>
+  `;
+
+  const fileInput = document.getElementById('statusMediaInput');
+  const uploadBtn = document.getElementById('customUploadBtn');
+  const fileSelected = document.getElementById('fileSelected');
+  const selectedFileName = document.getElementById('selectedFileName');
+  const retakeBtn = document.getElementById('retakeBtn');
+
+  // Open file dialog
+  uploadBtn.onclick = () => fileInput.click();
+
+  // ✅ SINGLE onchange handler
+  fileInput.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Show file name
+    selectedFileName.textContent = file.name;
+    uploadBtn.classList.add("hidden");
+    fileSelected.classList.remove("hidden");
+
+    // If video, check duration
+    if (file.type.startsWith("video/")) {
+      const url = URL.createObjectURL(file);
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.src = url;
+      video.onloadedmetadata = function () {
+        URL.revokeObjectURL(url);
+        if (video.duration > 60) {
+          showPopup("Video must be 1 minute or less.", "error");
+          fileInput.value = "";
+          fileSelected.classList.add("hidden");
+          uploadBtn.classList.remove("hidden");
+        }
+      };
+    }
+  };
+
+  // Retake file
+  retakeBtn.onclick = () => {
+    fileInput.value = ""; // clear selection
+    fileSelected.classList.add("hidden");
+    uploadBtn.classList.remove("hidden");
+  };
+
+  // Send media status
+  document.getElementById('sendMediaStatus').onclick = async () => {
+    const file = fileInput.files[0];
+    if (!file) {
+      showPopup('Please select a file.', 'error');
+      return;
+    }
+
+    // Close modal immediately
+    modal.remove();
+
+    // Show uploading popup
+    showPopup('Uploading status… please wait', 'info');
+
+    try {
+      // 1. Get Cloudinary signature
+      const sigRes = await fetch('/api/cloudinary-signature');
+      const { timestamp, signature, cloudName, apiKey } = await sigRes.json();
+
+      // 2. Upload file to Cloudinary
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('timestamp', timestamp);
+      formData.append('api_key', apiKey);
+      formData.append('signature', signature);
+
+      const cloudRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/upload`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!cloudRes.ok) throw new Error('Upload failed');
+      const cloudData = await cloudRes.json();
+      const mediaUrl = cloudData.secure_url;
+
+      // 3. Save status to backend
+      const saveRes = await fetch('/api/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: accounts[currentIndex].userId, type: 'media', mediaUrl })
+      });
+
+      if (!saveRes.ok) throw new Error('Failed to save status');
+
+      // Success message
+      showPopup('Status uploaded successfully!', 'success');
+
+      // Reload status on UI
+      loadStatus(accounts[currentIndex].userId);
+
+    } catch (err) {
+      console.error(err);
+      showPopup('Failed to upload status. Try again.', 'error');
+    }
+  };
+
+  // Close modal
+  document.getElementById('closeStatusModal3').onclick = () => modal.remove();
+};
+};
+
+  async function loadStatus(userId) {
+  try {
+    const res = await fetch(`/api/status/${userId}`);
+    if (!res.ok) {
+      // No status → revert avatar
+      document.getElementById('headerAvatarMain').src = accounts[currentIndex].avatar;
+      return;
+    }
+const statuses = await res.json();
+
+    // Replace profile picture with status preview
+// Don’t reverse
+const latest = statuses[statuses.length - 1]; // newest for avatar
+document.getElementById('headerAvatarMain').src = latest.type === 'text'
+  ? `https://dummyimage.com/100x100/ec4899/fff.png&text=${encodeURIComponent(latest.text.slice(0,2))}`
+  : (latest.mediaUrl.match(/\.(mp4|webm|ogg)$/) 
+      ? "https://dummyimage.com/100x100/000/fff.png&text=▶" 
+      : latest.mediaUrl);
+
+document.getElementById('headerAvatarMain').onclick = () => showFullScreenStatuses(statuses, true);
+
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function showFullScreenStatuses(statuses, startFromLast = false) {
+  let index = startFromLast ? statuses.length - 1 : 0;
+  let overlay = document.createElement("div");
+  overlay.className = "fixed inset-0 bg-black flex items-center justify-center z-50";
+  document.body.appendChild(overlay);
+
+  let timer, progressTimer;
+  let isPaused = false;
+  let lastTap = 0;
+  const DURATION = 5000; // 5s per status
+
+function renderStatus() {
+  overlay.innerHTML = "";
+  const current = statuses[index];
+  let content = "";
+
+  if (current.type === "text") {
+    // 📝 Text status
+    content = `<p class="text-white text-2xl font-bold p-4 text-center">${current.text}</p>`;
+  } else {
+    // 🎥 Video or 🖼️ Image
+    if (current.mediaUrl && current.mediaUrl.match(/\.(mp4|webm|ogg)$/)) {
+      content = `<video id="statusVideo" src="${current.mediaUrl}" autoplay muted playsinline class="max-h-full max-w-full"></video>`;
+    } else {
+      content = `<img src="${current.mediaUrl}" class="max-h-full max-w-full"/>`;
+    }
+  }
+
+  // Delete button UI
+// ✅ Only show delete if viewing my own statuses
+if (statuses[0].userId === accounts[currentIndex].userId) {
+  content += `
+    <div class="absolute bottom-6 w-full flex justify-center">
+      <button id="deleteStatusBtn" 
+        class="bg-pink-600 text-white rounded-full px-4 py-2 flex items-center gap-1 shadow-md hover:bg-pink-700">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" 
+          viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+            d="M6 18L18 6M6 6l12 12" />
+        </svg>
+        <span class="text-sm font-semibold">Delete</span>
+      </button>
+    </div>
+  `;
+}
+
+  overlay.innerHTML = `
+    <div id="statusContent" class="relative w-full h-full flex items-center justify-center">
+      ${content}
+    </div>
+  `;
+
+// 🗑️ Delete logic (only if it's my status)
+if (document.getElementById('deleteStatusBtn')) {
+  document.getElementById('deleteStatusBtn').onclick = async function(e) {
+    e.stopPropagation();
+    const res = await fetch('/api/delete-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: accounts[currentIndex].userId, index })
+    });
+    const data = await res.json();
+    showPopup(data.message, res.ok ? 'success' : 'error');
+    statuses.splice(index, 1);
+    if (statuses.length === 0) {
+      overlay.remove();
+      loadStatus(accounts[currentIndex].userId);
+    } else {
+      if (index >= statuses.length) index = statuses.length - 1;
+      renderStatus();
+    }
+  };
+}
+
+// 🎯 VIDEO: wait until it finishes playing
+const video = document.getElementById("statusVideo");
+if (video) {
+  // 🚫 disable any auto-timer
+  clearTimeout(timer);
+
+  // make sure video actually plays
+  video.onloadedmetadata = () => {
+    video.play();
+  };
+
+  // only move when video finishes
+  video.onended = () => {
+    if (index < statuses.length - 1) {
+      index++;
+      renderStatus();
+    } else {
+      overlay.remove();
+    }
+  };
+} else {
+  // 🖼️ Text/Image → fallback timer
+  startTimer();
+}
+}
+
+function startTimer() {
+  clearTimeout(timer);
+  if (isPaused) return;
+
+  timer = setTimeout(() => {
+    if (index < statuses.length - 1) {
+      index++;
+      renderStatus();
+    } else {
+      overlay.remove(); // close after last
+    }
+  }, 5000); // ⏱️ 5s for text/image
+}
+
+  // Tap navigation
+overlay.onclick = (e) => {
+  if (isPaused) return;
+  const screenWidth = window.innerWidth;
+
+  if (e.clientX < screenWidth / 2) {
+    // 👈 Left side
+    if (index > 0) {
+      index--; // go back
+      renderStatus();
+      startTimer();
+    } else {
+      // already first → restart current
+      renderStatus();
+      startTimer();
+    }
+  } else {
+    // 👉 Right side
+    if (index < statuses.length - 1) {
+      index++; // go forward
+      renderStatus();
+      startTimer();
+    } else {
+      overlay.remove(); // close if last
+    }
+  }
+};
+
+  // Pause on long press (touch)
+  overlay.addEventListener("touchstart", () => {
+    isPaused = true;
+    clearTimeout(timer);
+  });
+  overlay.addEventListener("touchend", () => {
+    if (isPaused) {
+      isPaused = false;
+      startTimer();
+    }
+  });
+
+  // Pause on long click (desktop)
+  overlay.addEventListener("mousedown", () => {
+    isPaused = true;
+    clearTimeout(timer);
+  });
+  overlay.addEventListener("mouseup", () => {
+    if (isPaused) {
+      isPaused = false;
+      startTimer();
+    }
+  });
+
+  // Init
+  renderStatus();
+
+// Only start timer for text/image
+const current = statuses[index];
+if (current.type === "text" || (current.mediaUrl && !current.mediaUrl.match(/\.(mp4|webm|ogg)$/))) {
+  startTimer();
+}
+
+}
+
+async function loadOtherStatuses() {
+  const userId = accounts[currentIndex].userId;
+  const res = await fetch(`/api/active-statuses/${userId}`);
+  if (!res.ok) return;
+  const others = await res.json();
+  const bar = document.getElementById('otherStatusesBar');
+  bar.innerHTML = '';
+  others.forEach(u => {
+    bar.innerHTML += `
+      <div class="relative inline-block cursor-pointer" onclick="showOtherStatus('${u.userId}')">
+        <img src="${u.status.type === 'text'
+  ? `https://dummyimage.com/100x100/ec4899/fff.png&text=${encodeURIComponent(u.status.text.slice(0,2))}`
+  : (u.status.mediaUrl.match(/\.(mp4|webm|ogg)$/) 
+      ? 'https://dummyimage.com/100x100/000/fff.png&text=▶'
+      : u.status.mediaUrl)
+}" 
+alt="${u.username}" 
+class="w-12 h-12 rounded-full border-2 border-pink-500 object-cover" />
+        <span id="status-dot-${u.userId}" 
+          class="absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center"
+          style="background:${u.online ? '#ec4899' : '#d1d5db'}">
+        </span>
+      </div>
+    `;
+  });
+}
+
+// Show other user's status in full screen
+window.showOtherStatus = async function(userId) {
+  const res = await fetch(`/api/status/${userId}`);
+  if (!res.ok) return;
+  const statuses = await res.json();
+  showFullScreenStatuses(statuses, true);
+};
+
+  // Call after loading account
+loadOtherStatuses();
+
+function shuffleArray(array) {
+  let arr = array.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+async function loadDashboardPosts() {
+  const user = accounts[currentIndex];
+  const postsRes = await fetch(`/api/posts/reels/${user.userId}`);
+  const postsDiv = document.getElementById('dashboardPosts');
+  if (!postsRes.ok) {
+    postsDiv.innerHTML = `<div class="text-center font-medium opacity-70">No post yet.</div>`;
+    return;
+  }
+let posts = await postsRes.json();
+if (posts.length === 0) {
+  postsDiv.innerHTML = `<div class="text-center font-medium opacity-70">No post yet.</div>`;
+  return;
+}
+// Shuffle and remove duplicates by postId
+posts = shuffleArray(posts.filter((post, idx, arr) =>
+  arr.findIndex(p => p.postId === post.postId) === idx
+));
+window.lastLoadedPosts = posts; // <-- Add this line
+  // Use Promise.all to fetch all profiles asynchronously
+  const profiles = await Promise.all(posts.map(post => getUserProfile(post.userId)));
+  postsDiv.innerHTML = posts.map((post, idx) => {
+    let privacyEmoji = post.privacy === "everyone" ? "🌍 Public" :
+                       post.privacy === "friends" ? "👥 Friends" :
+                       "🔒 Only Me";
+    const profile = profiles[idx];
+    let header = `
+      <div class="flex items-center gap-2 mb-2">
+        <img src="${profile.avatar}" class="w-10 h-10 rounded-full object-cover"/>
+        <div>
+          <div class="font-semibold text-pink-600">@${profile.username}</div>
+          <div class="text-xs text-gray-500 flex items-center gap-1">
+            <span>${new Date(post.createdAt).toLocaleString()}</span>
+            <span>• ${privacyEmoji}</span>
+          </div>
+        </div>
+      </div>
+    `;
+    let body = "";
+    if (post.type === "text") {
+      body = `
+        <div class="text-lg leading-snug mb-2">${post.message}</div>
+        ${post.hashtags?.length ? 
+          `<div class="text-blue-400 text-sm mb-3">
+             ${post.hashtags.map(tag => `#${tag}`).join(" ")}
+           </div>` 
+         : ""}
+      `;
+    } else if (post.type === "picture") {
+      body = `
+          <div class="mb-2">
+    <img src="${post.mediaUrl}" class="w-full rounded-lg cursor-pointer" onclick="openMediaModal('${post.mediaUrl}','image')" />
+  </div>
+        ${post.caption ? `<div class="mb-2">${post.caption}</div>` : ""}
+        ${post.hashtags?.length ? 
+          `<div class="text-blue-400 text-sm mb-3">
+             ${post.hashtags.map(tag => `#${tag}`).join(" ")}
+           </div>` 
+         : ""}
+      `;
+    } else if (post.type === "video") {
+      body = `
+         <div class="mb-2 relative">
+    <video src="${post.mediaUrl}" class="w-full rounded-lg cursor-pointer bg-black" id="video-${post.postId}" onclick="openMediaModal('${post.mediaUrl}','video')"></video>
+    <button id="playPauseBtn-${post.postId}" class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/60 text-white rounded-full p-3 text-3xl z-40" style="display:none;">►</button>
+  </div>
+        ${post.caption ? `<div class="mb-2">${post.caption}</div>` : ""}
+        ${post.hashtags?.length ? 
+          `<div class="text-blue-400 text-sm mb-3">
+             ${post.hashtags.map(tag => `#${tag}`).join(" ")}
+           </div>` 
+         : ""}
+      `;
+    }
+    let likeCount = post.likes?.length || 0;
+    let commentCount = post.comments?.length || 0;
+    let shareCount = post.shares || 0;
+let actions = `
+  <div class="flex justify-around text-gray-500 border-t border-b py-2 text-sm">
+    <button class="flex items-center gap-1" onclick="likePost('${post.postId}', this)">
+      ❤️ ${likeCount}
+    </button>
+    <button class="flex items-center gap-1" onclick="sharePost('${post.postId}', this)">
+      ↗️ Share${shareCount > 0 ? ` ${shareCount}` : ""}
+    </button>
+    <button class="flex items-center gap-1" onclick="openComments('${post.postId}')">
+      💬 Comment${commentCount > 0 ? ` ${commentCount}` : ""}
+    </button>
+  </div>
+`;
+    return `
+      <div class="bg-white/10 rounded-xl p-4 shadow-md">
+        ${header}
+        ${body}
+        ${actions}
+      </div>
+    `;
+  }).join("");
+}
+
+// Call after loading account
+loadDashboardPosts();
+
+// Fetch user profile by userId
+async function getUserProfile(userId) {
+  const res = await fetch(`/api/profile/${userId}`);
+  if (!res.ok) {
+    // fallback if user not found
+    return {
+      avatar: "https://ui-avatars.com/api/?name=User",
+      username: "unknown"
+    };
+  }
+  return await res.json();
+}
+
+// Like post
+window.likePost = async function(postId, btn) {
+  btn.disabled = true;
+  const res = await fetch(`/api/post/${postId}/like`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: accounts[currentIndex].userId })
+  });
+  btn.disabled = false;
+  if (res.ok) {
+    const data = await res.json();
+    btn.innerHTML = (data.likes > 0 ? `❤️<span class="text-sm"> ${data.likes}</span>` : "❤️");
+    showPopup(data.likes > 0 ? "Liked!" : "Unliked!", "success");
+  } else {
+    showPopup("Failed to like post.", "error");
+  }
+};
+
+// Share post
+window.sharePost = async function(postId, btn) {
+  const url = `${window.location.origin}/post-view.html?postId=${postId}`;
+  navigator.clipboard.writeText(url);
+  showPopup("Share link copied!");
+
+  // Increment share count in backend only once per user
+  const res = await fetch(`/api/post/${postId}/share`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: accounts[currentIndex].userId })
+  });
+  if (res.ok) {
+    const data = await res.json();
+    btn.innerHTML = `↗️<span class="text-sm">${data.shares > 0 ? ` ${data.shares}` : ""}</span>`;
+  }
+};
+
+// Comment modal logic (copy from reels, adapt IDs if needed)
+let activePostId = null;
+let activePost = null;
+
+window.openComments = function(postId) {
+  const post = lastLoadedPosts.find(p => p.postId === postId);
+  if (!post || post.allowComments === "off") {
+    showPopup("Comments are turned off for this post.", "error");
+    return;
+  }
+  activePostId = postId;
+  activePost = post;
+  document.getElementById("commentModal").classList.remove("hidden");
+  document.getElementById("commentUserAvatar").src = accounts[currentIndex].avatar;
+  document.getElementById("newCommentInput").value = "";
+  delete document.getElementById("newCommentInput").dataset.replyTo;
+  renderComments(activePost.comments || []);
+};
+
+window.closeComments = function() {
+  document.getElementById("commentModal").classList.add("hidden");
+  document.getElementById("commentList").innerHTML = "";
+  activePostId = null;
+  activePost = null;
+};
+
+function renderComments(comments) {
+  const container = document.getElementById("commentList");
+  if (!comments || comments.length === 0) {
+    container.innerHTML = `<div class="text-center text-gray-400">Be the first to comment</div>`;
+    return;
+  }
+  container.innerHTML = comments.map(c => renderComment(c)).join("");
+}
+
+function renderComment(comment) {
+  const hasReplies = comment.replies && comment.replies.length > 0;
+  const repliesHTML = hasReplies ? `
+    <button onclick="toggleReplies('${comment.commentId}')" 
+            class="ml-8 text-xs text-gray-500 hover:underline mt-1">
+      View Replies (${comment.replies.length})
+    </button>
+    <div id="replies-${comment.commentId}" class="ml-12 mt-1 space-y-1 hidden">
+      ${comment.replies.map(r => `
+        <div class="flex items-center gap-2">
+          <a href="view-profile.html?userId=${r.userId}">
+            <img src="${r.avatar}" class="w-5 h-5 rounded-full cursor-pointer"/>
+          </a>
+          <span class="font-semibold">${r.username}</span>
+          <span class="text-xs text-gray-500">${new Date(r.createdAt).toLocaleString()}</span>
+          <span>: ${r.text}</span>
+        </div>
+      `).join("")}
+    </div>
+  ` : '';
+
+  return `
+    <div class="rounded-lg p-2">
+      <div class="flex items-center gap-2">
+        <a href="view-profile.html?userId=${comment.userId}">
+          <img src="${comment.avatar}" class="w-6 h-6 rounded-full cursor-pointer"/>
+        </a>
+        <span class="font-semibold">${comment.username}</span>
+        <span class="text-xs text-gray-500">${new Date(comment.createdAt).toLocaleString()}</span>
+      </div>
+      <div class="ml-8 mt-1">${comment.text}</div>
+      <button onclick="showReplyBox('${comment.commentId}')" 
+              class="ml-8 text-xs text-blue-500 hover:underline mt-1">
+        Reply
+      </button>
+      ${repliesHTML}
+    </div>
+  `;
+}
+
+function toggleReplies(commentId) {
+  const el = document.getElementById(`replies-${commentId}`);
+  if (!el) return;
+  el.classList.toggle('hidden');
+}
+
+function showReplyBox(commentId) {
+  const comment = activePost.comments.find(c => c.commentId === commentId);
+  if (!comment) return;
+
+  const input = document.getElementById("newCommentInput");
+  input.value = "";
+  input.focus();
+  input.dataset.replyTo = commentId;
+  input.placeholder = `Reply to ${comment.username}...`;
+}
+
+window.submitComment = async function() {
+  const input = document.getElementById("newCommentInput");
+  const sendBtn = input.nextElementSibling;
+  const text = input.value.trim();
+  if (!text) return showPopup("Type something!", "error");
+
+  sendBtn.disabled = true;
+  const originalText = sendBtn.textContent;
+  sendBtn.textContent = "Sending...";
+
+  const replyTo = input.dataset.replyTo;
+  let url = `/api/post/${activePostId}/comment`;
+  if (replyTo) {
+    url = `/api/post/${activePostId}/comment/${replyTo}/reply`;
+  }
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: accounts[currentIndex].userId, text })
+  });
+
+  sendBtn.disabled = false;
+  sendBtn.textContent = originalText;
+
+  if (res.ok) {
+    const updated = await res.json();
+    activePost.comments = updated.comments;
+    renderComments(activePost.comments);
+    updateCommentCount(activePostId, activePost.comments.length);
+    input.value = "";
+    input.placeholder = "Write a comment...";
+    delete input.dataset.replyTo;
+  } else {
+    showPopup("Failed to submit comment.", "error");
+  }
+};
+
+function updateCommentCount(postId, newCount) {
+  // Find the comment button for this post and update its text
+  const postCards = document.querySelectorAll("#dashboardPosts > .bg-white\\/10");
+  postCards.forEach(card => {
+    const btns = card.querySelectorAll('button');
+    btns.forEach(btn => {
+      if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(`openComments('${postId}')`)) {
+        btn.innerHTML = `💬<span class="text-sm">${newCount > 0 ? ` ${newCount}` : ""}</span>`;
+      }
+    });
+  });
+}
+
+// Open full screen media
+window.openMediaModal = function(url, type) {
+  const modal = document.getElementById('mediaModal');
+  const content = document.getElementById('mediaContent');
+  modal.classList.remove('hidden');
+  if (type === 'image') {
+    content.innerHTML = `<img src="${url}" class="max-h-[90vh] max-w-[98vw] rounded-lg shadow-lg" />`;
+  } else if (type === 'video') {
+    content.innerHTML = `
+      <div class="relative w-full flex justify-center items-center">
+        <video id="fullscreenVideo" src="${url}" class="max-h-[90vh] max-w-[98vw] rounded-lg shadow-lg bg-black" controls></video>
+        <button id="fullscreenPlayPause" class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/60 text-white rounded-full p-3 text-3xl hidden z-50">►</button>
+      </div>
+    `;
+    setupCustomVideoPlayer('fullscreenVideo', 'fullscreenPlayPause');
+  }
+  // Download logic
+  document.getElementById('mediaDownloadBtn').onclick = () => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = url.split('/').pop();
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+};
+
+// Close modal
+document.getElementById('mediaBackBtn').onclick = function() {
+  document.getElementById('mediaModal').classList.add('hidden');
+  document.getElementById('mediaContent').innerHTML = '';
+};
+
+function setupCustomVideoPlayer(videoId, playPauseBtnId) {
+  const video = document.getElementById(videoId);
+  const playBtn = document.getElementById(playPauseBtnId);
+
+  if (!video || !playBtn) return;
+
+  // Show play button overlay when paused, hide when playing
+  function updateBtn() {
+    playBtn.style.display = video.paused ? '' : 'none';
+  }
+  video.addEventListener('pause', updateBtn);
+  video.addEventListener('play', updateBtn);
+  video.addEventListener('ended', updateBtn);
+
+  // Click overlay to play/pause
+  playBtn.onclick = (e) => {
+    e.stopPropagation();
+    video.paused ? video.play() : video.pause();
+  };
+
+  // Click video to play/pause
+  video.onclick = (e) => {
+    e.stopPropagation();
+    video.paused ? video.play() : video.pause();
+  };
+
+  // Initial state
+  updateBtn();
+}
+
+setTimeout(() => {
+  document.querySelectorAll('video[id^="video-"]').forEach(video => {
+    const postId = video.id.replace('video-', '');
+    setupCustomVideoPlayer(video.id, `playPauseBtn-${postId}`);
+  });
+}, 0);
+</script>
+</body>
+</html>

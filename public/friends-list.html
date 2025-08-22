@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Friends List</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen pt-10 bg-pink-50 flex flex-col items-center">
+  <!-- Back Button -->
+<div class="flex items-center gap-2 px-6 py-3 w-full max-w-2xl mx-auto">
+  <button onclick="goBack()" class="p-2 rounded-full hover:bg-gray-700/30 dark:hover:bg-gray-200/30">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+    </svg>
+  </button>
+  <span class="text-xl font-bold" id="pageTitle">Friends List</span>
+</div>
+  <div class="w-full max-w-2xl rounded-lg shadow p-6">
+    <div id="friendsList"></div>
+  </div>
+  <script>
+      // Load theme from localStorage or system preference
+    const theme = JSON.parse(localStorage.getItem('theme')) || { bg: '#111827', accent: '#ec4899' }; 
+    document.body.style.background = theme.bg;
+    document.body.style.color = getContrast(theme.bg);
+
+    // Set text color for all content based on contrast
+function applyContrastText() {
+  const contrastColor = getContrast(theme.bg);
+document.body.style.color = contrastColor;
+document.querySelectorAll('.w-full, .max-w-2xl, #friendsList, .font-bold, .text-xs').forEach(el => {
+  el.style.color = contrastColor;
+});
+}
+applyContrastText();
+
+   // apply accent
+    document.querySelectorAll('#pageTitle, #profileName, h3').forEach(el => {
+      el.style.color = theme.accent;
+    });
+    document.querySelectorAll('.border-4').forEach(el => {
+      el.style.borderColor = theme.accent;
+    });
+    document.querySelectorAll('.bg-pink-600').forEach(el => {
+      el.style.background = theme.accent;
+    });
+
+    // Detect text contrast (light/dark based on bg color)
+    function getContrast(hex) {
+      hex = hex.replace('#', '');
+      const r = parseInt(hex.substr(0,2),16);
+      const g = parseInt(hex.substr(2,2),16);
+      const b = parseInt(hex.substr(4,2),16);
+      const brightness = (r*299 + g*587 + b*114) / 1000;
+      return brightness > 125 ? '#111' : '#fff';
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const userId = params.get('userId');
+    let accounts = JSON.parse(localStorage.getItem('userAccounts') || '[]');
+    let idx = parseInt(localStorage.getItem('currentAccountIndex') || '0');
+    let currentUser = accounts[idx];
+
+    async function getCurrentUser() {
+      let userId = accounts[idx]?.userId;
+      if (!userId) return null;
+      const res = await fetch(`/api/profile/${userId}`);
+      if (!res.ok) return null;
+      return await res.json();
+    }
+
+    async function loadFriends() {
+      const currentUser = await getCurrentUser();
+      const res = await fetch(`/api/profile/${userId}`);
+      if (!res.ok) return;
+      const user = await res.json();
+      const friends = user.friends || [];
+      if (friends.length === 0) {
+        document.getElementById('friendsList').innerHTML = '<div class="text-gray-500 text-center">No friends yet.</div>';
+        return;
+      }
+      // Fetch full profiles for each friend
+      const friendProfiles = await Promise.all(
+        friends.map(fid => fetch(`/api/profile/${fid}?viewerId=${currentUser.userId}`).then(r => r.json()))
+      );
+      document.getElementById('friendsList').innerHTML = friendProfiles.map(f => {
+        let actionHTML = '';
+        if (f.userId === currentUser.userId) {
+          actionHTML = '<span class="font-bold">This is you</span>';
+        } else if (currentUser.friends && currentUser.friends.includes(f.userId)) {
+          actionHTML = '<button class="bg-gray-500 text-white px-3 py-1 rounded" disabled>Already Friends</button>';
+        } else if (currentUser.requests && currentUser.requests.includes(f.userId)) {
+          actionHTML = `<button class="bg-green-600 text-white px-3 py-1 rounded font-semibold" onclick="confirmFriend('${f.userId}')">Confirm Request</button>`;
+        } else if (f.requests && f.requests.includes(currentUser.userId)) {
+          actionHTML = `<button class="bg-yellow-500 text-white px-3 py-1 rounded font-semibold" onclick="cancelRequest('${f.userId}')">Request Sent (Cancel)</button>`;
+        } else {
+          actionHTML = `<button class="bg-pink-600 text-white px-3 py-1 rounded font-semibold" onclick="addFriend('${f.userId}')">Add Friend</button>`;
+        }
+        return `
+          <div class="flex items-center gap-4 bg-pink-50 rounded p-3 mb-2">
+            <a href="view-profile.html?userId=${f.userId}" class="flex items-center gap-2">
+              <img src="${f.avatar}" class="w-12 h-12 rounded-full border-2 border-pink-500 object-cover" />
+              <div>
+                <div class="font-bold text-pink-600">${f.fullName}</div>
+                <div class="text-xs text-gray-500">@${f.username}</div>
+              </div>
+            </a>
+            <div class="flex-1"></div>
+            ${actionHTML}
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.addFriend = async function(targetId) {
+      await fetch('/api/add-friend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.userId, targetId })
+      });
+      loadFriends();
+    };
+    window.confirmFriend = async function(requesterId) {
+      await fetch('/api/confirm-friend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.userId, requesterId })
+      });
+      loadFriends();
+    };
+    window.cancelRequest = async function(targetId) {
+      await fetch('/api/cancel-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.userId, targetId })
+      });
+      loadFriends();
+    };
+
+    function goBack() {
+  if (document.referrer && document.referrer.includes('view-profile.html')) {
+    window.location.href = document.referrer;
+  } else {
+    history.back();
+  }
+}
+
+    loadFriends();
+  </script>
+</body>
+</html>

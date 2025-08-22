@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Post | LoveConnect</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .popup {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      min-width: 280px;
+      background: #fff;
+      color: #333;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      padding: 12px 18px;
+      z-index: 9999;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: fadeIn 0.3s;
+    }
+    .popup-success { border-left: 5px solid #ec4899; }
+    .popup-error { border-left: 5px solid #ef4444; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body class="bg-pink-50 min-h-screen flex flex-col justify-center items-center">
+  <div id="popup-container"></div>
+
+  <div class="w-full max-w-lg px-6 py-6 bg-white rounded-2xl shadow-lg text-center">
+    <h2 class="text-3xl font-bold text-pink-600 mb-4">✨ Create a Post ✨</h2>
+
+    <!-- Step 1 -->
+    <div id="step1">
+      <p class="text-gray-700 mb-4 font-medium">What do you want to share today?</p>
+      <div class="flex justify-center gap-4 mb-6">
+        <button type="button" class="bg-pink-600 text-white px-5 py-2 rounded-xl font-bold hover:bg-pink-700" onclick="chooseType('text')">📝 Text</button>
+        <button type="button" class="bg-pink-600 text-white px-5 py-2 rounded-xl font-bold hover:bg-pink-700" onclick="chooseType('picture')">📷 Picture</button>
+        <button type="button" class="bg-pink-600 text-white px-5 py-2 rounded-xl font-bold hover:bg-pink-700" onclick="chooseType('video')">🎥 Video</button>
+      </div>
+    </div>
+
+    <!-- Text Post Step -->
+    <div id="textForm" class="space-y-4 hidden text-left">
+      <p class="text-pink-500 font-semibold text-center">Great choice! Write something meaningful 💖</p>
+      <textarea id="textMessage" class="w-full border rounded-xl px-3 py-3" rows="6" maxlength="2000" placeholder="Type your message here (max 200 lines)" required></textarea>
+      <button type="button" id="textNextBtn" class="w-full py-2 rounded-xl bg-pink-600 text-white font-bold hover:bg-pink-700">Next ➡️</button>
+    </div>
+
+    <!-- Media Step -->
+    <div id="mediaForm" class="space-y-4 hidden text-left">
+      <input type="file" id="mediaInput" name="file" class="hidden" />
+      <div id="mediaPreview" class="flex justify-center"></div>
+      <button type="button" id="mediaNextBtn" class="w-full py-2 rounded-xl bg-pink-600 text-white font-bold hover:bg-pink-700">Next ➡️</button>
+    </div>
+
+    <!-- Hashtag & Caption Step -->
+    <div id="hashtagForm" class="space-y-4 hidden text-left">
+      <p class="text-pink-500 font-semibold text-center">Almost done! Add some vibes ✨</p>
+      <label class="block font-semibold text-gray-700 mb-2">Add hashtags (separate with spaces)</label>
+      <input type="text" id="hashtags" class="w-full border rounded-xl px-3 py-2" placeholder="#love #fun #life" />
+      <label class="block font-semibold text-gray-700 mb-2">Add a caption (optional)</label>
+      <textarea id="caption" class="w-full border rounded-xl px-3 py-2" rows="3" maxlength="300" placeholder="Say something about your post"></textarea>
+      <button type="button" id="hashtagNextBtn" class="w-full py-2 rounded-xl bg-pink-600 text-white font-bold hover:bg-pink-700">Next ➡️</button>
+    </div>
+
+    <!-- Final Step -->
+    <div id="finalForm" class="space-y-4 hidden text-left">
+      <p class="text-pink-500 font-semibold text-center">Last step 🎉 Final touches!</p>
+      <label class="block font-semibold text-gray-700 mb-2">Allow Comments?</label>
+      <select id="allowComments" class="w-full border rounded-xl px-3 py-2">
+        <option value="on">💬 On</option>
+        <option value="off">🙊 Off</option>
+      </select>
+      <label class="block font-semibold text-gray-700 mb-2">Add a location</label>
+      <input type="text" id="location" class="w-full border rounded-xl px-3 py-2" placeholder="📍 e.g. Lagos, Nigeria" />
+      <button type="button" id="postBtn" class="w-full py-2 rounded-xl bg-pink-600 text-white font-bold hover:bg-pink-700">🚀 Post It</button>
+    </div>
+  </div>
+<script>
+  // === POPUP HELPER ===
+  function showPopup(message, type = 'success') {
+    const popup = document.createElement('div');
+    popup.className = `popup popup-${type}`;
+    popup.innerHTML = `<span>${message}</span>`;
+    document.getElementById('popup-container').appendChild(popup);
+    setTimeout(() => popup.remove(), 2500);
+  }
+
+  // THEME
+  const theme = JSON.parse(localStorage.getItem('theme')) || { bg: '#fdf2f8', accent: '#ec4899' };
+  document.body.style.background = theme.bg;
+  document.querySelectorAll('.text-pink-600').forEach(el => { el.style.color = theme.accent; });
+  document.querySelectorAll('.bg-pink-600').forEach(el => { el.style.background = theme.accent; });
+
+  let postType = null;
+  let postData = {};
+
+  function chooseType(type) {
+    postType = type;
+    document.getElementById('step1').classList.add('hidden');
+
+    if (type === 'text') {
+      document.getElementById('textForm').classList.remove('hidden');
+      showPopup("You picked Text 📝. Let's write something!");
+    } else {
+      const input = document.getElementById('mediaInput');
+      input.accept = type === 'picture' ? 'image/*' : 'video/*';
+      input.click();
+      document.getElementById('mediaForm').classList.remove('hidden');
+      showPopup(`You picked ${type === 'picture' ? '📷 Picture' : '🎥 Video'} — choose your file!`);
+    }
+  }
+
+  // TEXT POST FLOW
+  document.getElementById("textNextBtn").onclick = function () {
+    const message = document.getElementById("textMessage").value.trim();
+    const lines = message.split("\n").length;
+    if (lines < 1 || lines > 200) {
+      showPopup("Message must be between 1 and 200 lines.", "error");
+      return;
+    }
+    postData = {
+      type: "text",
+      message
+    };
+    document.getElementById("textForm").classList.add("hidden");
+    document.getElementById("finalForm").classList.remove("hidden");
+  };
+
+  // MEDIA FLOW
+  document.getElementById("mediaInput").onchange = function () {
+    const file = this.files[0];
+    if (!file) return;
+    const preview = document.getElementById("mediaPreview");
+    preview.innerHTML = "";
+
+    if (postType === "picture") {
+      const img = document.createElement("img");
+      img.src = URL.createObjectURL(file);
+      img.className = "w-40 h-40 object-cover rounded-xl shadow";
+      preview.appendChild(img);
+    } else {
+      const vid = document.createElement("video");
+      vid.src = URL.createObjectURL(file);
+      vid.controls = true;
+      vid.className = "w-40 h-40 rounded-xl shadow";
+      preview.appendChild(vid);
+    }
+    postData = { type: postType, file };
+  };
+
+  document.getElementById("mediaNextBtn").onclick = function () {
+    if (!postData.file) {
+      showPopup("Please select a file before continuing.", "error");
+      return;
+    }
+    document.getElementById("mediaForm").classList.add("hidden");
+    document.getElementById("hashtagForm").classList.remove("hidden");
+  };
+
+  // HASHTAGS & CAPTION
+  document.getElementById("hashtagNextBtn").onclick = function () {
+    postData.hashtags = document.getElementById("hashtags").value.trim();
+    postData.caption = document.getElementById("caption").value.trim();
+    document.getElementById("hashtagForm").classList.add("hidden");
+    document.getElementById("finalForm").classList.remove("hidden");
+  };
+
+  // FINAL SUBMIT
+  document.getElementById("postBtn").onclick = async function () {
+    postData.allowComments = document.getElementById("allowComments").value;
+    postData.location = document.getElementById("location").value.trim();
+
+    const accounts = JSON.parse(localStorage.getItem("userAccounts") || "[]");
+    const idx = parseInt(localStorage.getItem("currentAccountIndex") || "0");
+    const userId = accounts[idx]?.userId;
+
+    const formData = new FormData();
+    formData.append("userId", userId);
+    formData.append("type", postData.type);
+    formData.append("allowComments", postData.allowComments);
+    formData.append("location", postData.location);
+    
+    if (postData.type === "text") {
+      formData.append("message", postData.message);
+    } else {
+      if (!postData.file) {
+        showPopup("Please select a file.", "error");
+        return;
+      }
+      formData.append("file", postData.file);
+    }
+
+    if (postData.hashtags) formData.append("hashtags", postData.hashtags);
+    if (postData.caption) formData.append("caption", postData.caption);
+
+    try {
+      const response = await fetch("/api/create-post", {
+        method: "POST",
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        showPopup(result.message || "Something went wrong", "error");
+        return;
+      }
+
+      showPopup("Post saved!", "success");
+      setTimeout(() => {
+        window.location.href = `view-profile.html?userId=${userId}`;
+      }, 1200);
+    } catch (err) {
+      showPopup("Network error, please try again", "error");
+    }
+  };
+</script>
+</body>
+</html>

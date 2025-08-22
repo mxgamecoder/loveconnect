@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat | LoveConnect</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .icon-btn { transition: background 0.2s; }
+    .icon-btn:active { background: #fce7f3; }
+  </style>
+</head>
+<body class="bg-pink-50 min-h-screen">
+  <!-- Header -->
+  <header class="flex items-center justify-between px-4 py-3 shadow" style="height:56px;">
+    <!-- Back icon -->
+    <button onclick="window.location.href='dashboard.html'" class="p-2 rounded-full bg-pink-100 hover:bg-pink-200">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="#ec4899">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+    </button>
+    <span class="font-bold text-pink-600 text-lg">Message</span>
+    <div class="flex items-center gap-2">
+      <!-- Create group icon
+      <button class="p-2 rounded-full bg-pink-100 hover:bg-pink-200" title="Create Group">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="#ec4899">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+      </button> -->
+      <!-- Friends icon -->
+      <button class="p-2 rounded-full bg-pink-100 hover:bg-pink-200" title="Friends List" onclick="showFriendsList()">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="#ec4899">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9a3 3 0 11-6 0 3 3 0 016 0zm-6 7a6 6 0 00-6 6h12a6 6 0 00-6-6z" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Search bar -->
+  <div class="px-4 py-2 shadow">
+    <input id="searchInput" type="text" placeholder="Search friends..." class="w-full px-4 py-2 rounded-full border border-pink-200 focus:outline-none focus:border-pink-400" oninput="filterFriends()">
+  </div>
+
+  <!-- Friends list -->
+  <main id="friendsList" class="p-4 space-y-4">
+    <!-- Friends will be loaded here -->
+  </main>
+
+<!-- Friend Modal -->
+<div id="friendModal" class="fixed inset-0 bg-black/60 z-50 hidden flex flex-col">
+  <div class="flex-1 flex flex-col bg-black rounded-none shadow-none w-full h-full p-0 relative">
+    <button onclick="closeFriendModal()" class="absolute top-4 right-4 text-gray-400 hover:text-pink-500 text-3xl font-bold z-10">&times;</button>
+    <h2 class="text-xl font-bold mb-4 text-pink-600 px-6 pt-8 pb-2">Your Friends</h2>
+    <div id="modalFriendsList" class="space-y-3 flex-1 overflow-y-auto px-6 pb-8">
+      <!-- Friends will be loaded here -->
+    </div>
+  </div>
+</div>
+
+  <script>
+    const socket = io();
+
+    // THEME
+  const theme = JSON.parse(localStorage.getItem('theme')) || { bg: '#fdf2f8', accent: '#ec4899' };
+  document.body.style.background = theme.bg;
+  document.querySelectorAll('.text-pink-600').forEach(el => { el.style.color = theme.accent; });
+  document.querySelectorAll('.bg-pink-600').forEach(el => { el.style.background = theme.accent; });
+
+    const accounts = JSON.parse(localStorage.getItem("userAccounts") || "[]");
+    const idx = parseInt(localStorage.getItem("currentAccountIndex") || "0");
+    const currentUser = accounts[idx] || {};
+
+    async function loadFriends() {
+      // Fetch friends from backend
+      const res = await fetch(`/api/users/${currentUser.userId}`);
+      let friends = [];
+      if (res.ok) friends = await res.json();
+
+      const list = document.getElementById('friendsList');
+      const modalList = document.getElementById('modalFriendsList');
+      if (!friends.length) {
+        list.innerHTML = `
+          <div class="flex flex-col items-center justify-center mt-10">
+            <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f91d.png" class="w-16 h-16 mb-2" alt="Handshake"/>
+            <div class="text-gray-500 text-lg">Be the first to chat! 😊</div>
+          </div>
+        `;
+        modalList.innerHTML = list.innerHTML; // Sync modal with empty state
+        return;
+      }
+
+list.innerHTML = friends.map(friend => `
+  <div class="flex items-center gap-4 bg-white rounded-lg shadow p-3 cursor-pointer hover:bg-pink-50" onclick="startChat('${friend.userId}')">
+    <img src="${friend.avatar}" class="w-12 h-12 rounded-full border-2 border-pink-500 object-cover"/>
+    <div>
+      <div class="font-bold text-pink-600">@${friend.username}</div>
+      <div class="text-gray-500 text-sm">${friend.fullName || ""}</div>
+    </div>
+  </div>
+`).join('');
+  // Mark yourself online
+  socket.emit("online", currentUser.userId);
+
+  // Listen for new message notifications
+  socket.on('newMessageNotification', data => {
+    // Optionally, you can check if the user is on the chat-room page with this user and skip
+    // Otherwise, reload the friends list to update the "You have new message" status
+    loadFriends();
+  });
+
+
+      modalList.innerHTML = list.innerHTML; // Sync modal with friend list
+const friendStatusList = await Promise.all(friends.map(async friend => {
+  const roomId = [currentUser.userId, friend.userId].sort().join('_');
+  let hasUnread = false;
+  let hasAny = false;
+  try {
+    const res = await fetch(`/api/messages/${roomId}`);
+    if (res.ok) {
+      const messages = await res.json();
+      hasAny = messages.length > 0;
+      hasUnread = messages.some(m => m.to === currentUser.userId && !m.seen);
+    }
+  } catch {}
+  return {
+    friend,
+    hasUnread,
+    hasAny
+  };
+}));
+
+// Sort: unread first, then hasAny, then no messages
+friendStatusList.sort((a, b) => {
+  if (a.hasUnread && !b.hasUnread) return -1;
+  if (!a.hasUnread && b.hasUnread) return 1;
+  if (a.hasAny && !b.hasAny) return -1;
+  if (!a.hasAny && b.hasAny) return 1;
+  return 0;
+});
+
+list.innerHTML = friendStatusList.map(({friend, hasUnread, hasAny}) => {
+let statusText = hasUnread
+  ? `<span class="text-green-600 font-semibold">You have new message</span>`
+  : (hasAny
+      ? `<span class="text-gray-400">No new message</span>`
+      : `<span class="text-gray-400">Be the first to chat</span>`);
+return `
+  <div class="flex items-center gap-4 bg-white rounded-lg shadow p-3 cursor-pointer hover:bg-pink-50" onclick="startChat('${friend.userId}')">
+    <img src="${friend.avatar}" class="w-12 h-12 rounded-full border-2 border-pink-500 object-cover"/>
+    <div>
+      <div class="font-bold text-pink-600">@${friend.username}</div>
+      <div class="text-gray-500 text-sm">${friend.fullName || ""}</div>
+      <div>${statusText}</div>
+    </div>
+  </div>
+`;
+}).join('');
+    }
+
+    function filterFriends() {
+      const val = document.getElementById('searchInput').value.toLowerCase();
+      document.querySelectorAll('#friendsList > div').forEach(div => {
+        const name = div.textContent.toLowerCase();
+        div.style.display = name.includes(val) ? '' : 'none';
+      });
+    }
+
+    function startChat(userId) {
+      // Redirect to chat with this user (implement chat logic as needed)
+      window.location.href = `chat-room.html?userId=${userId}`;
+    }
+
+    function showFriendsList() {
+      document.getElementById('friendModal').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      loadModalFriends();
+    }
+    function closeFriendModal() {
+      document.getElementById('friendModal').classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
+    // Load friends into modal
+    async function loadModalFriends() {
+      const res = await fetch(`/api/users/${currentUser.userId}`);
+      let friends = [];
+      if (res.ok) friends = await res.json();
+
+      const list = document.getElementById('modalFriendsList');
+      if (!friends.length) {
+        list.innerHTML = `<div class="text-gray-500 text-center py-8">No friends yet.</div>`;
+        return;
+      }
+      list.innerHTML = friends.map(friend => `
+        <div class="flex items-center gap-3 bg-pink-50 rounded p-2 cursor-pointer hover:bg-pink-100"
+             onclick="startChat('${friend.userId}')">
+          <img src="${friend.avatar}" class="w-10 h-10 rounded-full border-2 border-pink-500 object-cover"/>
+          <div>
+            <div class="font-bold text-pink-600">@${friend.username}</div>
+            <div class="text-gray-500 text-xs">${friend.fullName || ""}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Load friends on page load
+    loadFriends();
+  </script>
+</body>
+</html>

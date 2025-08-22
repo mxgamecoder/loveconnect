@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings | LoveConnect</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+.popup {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 280px;
+  background: #fff;
+  color: #333;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  padding: 12px 18px;
+  z-index: 9999;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: fadeIn 0.3s;
+}
+.popup-success { border-left: 5px solid #ec4899; }
+.popup-error { border-left: 5px solid #ef4444; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+</style>
+</head>
+<body class="bg-pink-50 min-h-screen flex flex-col items-center pt-10">
+<div id="popup-container"></div>
+  <div class="flex items-center w-full max-w-lg px-4 mb-6">
+    <a href="dashboard.html" class="text-pink-600 hover:text-pink-800 flex items-center">
+      <!-- Heroicons: Arrow Left -->
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+      <span class="sr-only">Back</span>
+    </a>
+    <h2 class="text-2xl font-bold text-pink-600">Settings</h2>
+  </div>
+  <!-- Theme Color Overlay (hidden by default, uses current theme color) -->
+  <div id="themeOverlay" class="fixed inset-0 flex flex-col items-center justify-center z-50 hidden" style="background: var(--theme-bg, #fdf2f8);">
+    <h3 id="themeOverlayTitle" class="text-xl font-bold text-pink-600 mb-4">Pick a Theme Color</h3>
+    <p class="mb-6 text-gray-700">Choose the background color you want for your app.</p>
+    <div class="flex flex-wrap gap-5 justify-center mb-8">
+  <button class="w-14 h-14 rounded-full border-4 border-gray-200" style="background:#111827;" title="Black" onclick="setThemeColor('#111827')"></button>
+  <button class="w-14 h-14 rounded-full border-4 border-gray-200" style="background:#ec48;" title="Yellow" onclick="setThemeColor('#ec48')"></button>
+  <button class="w-14 h-14 rounded-full border-4 border-gray-200" style="background:#2563eb;" title="Blue" onclick="setThemeColor('#2563eb')"></button>
+  <button class="w-14 h-14 rounded-full border-4 border-gray-200" style="background:#10b981;" title="Green" onclick="setThemeColor('#10b981')"></button>
+  <button class="w-14 h-14 rounded-full border-4 border-gray-200" style="background:#a78bfa;" title="Purple" onclick="setThemeColor('#a78bfa')"></button>
+</div>
+    <button class="px-6 py-2 rounded bg-pink-600 text-white font-semibold" onclick="closeThemeOverlay()">Cancel</button>
+  </div>
+  <!-- Theme Switcher (move this up for visibility) -->
+  <div id="themeColorPicker" class="w-full max-w-lg px-4 mb-6 hidden">
+    <div class="font-semibold text-pink-600 mb-2">Switch Theme Color:</div>
+    <div class="flex gap-3">
+      <button class="w-8 h-8 rounded-full border-2" style="background:#111827;" title="Black" onclick="setThemeColor('#111827')"></button>
+      <button class="w-8 h-8 rounded-full border-2" style="background:#ec48;" title="Pink" onclick="setThemeColor('#ec48')"></button>
+      <button class="w-8 h-8 rounded-full border-2" style="background:#2563eb;" title="Blue" onclick="setThemeColor('#2563eb')"></button>
+      <button class="w-8 h-8 rounded-full border-2" style="background:#10b981;" title="Green" onclick="setThemeColor('#10b981')"></button>
+      <button class="w-8 h-8 rounded-full border-2" style="background:#a78bfa;" title="Purple" onclick="setThemeColor('#a78bfa')"></button>
+    </div>
+  </div>
+  <ul class="space-y-4 w-full max-w-lg px-4">
+    <a href="profile.html" class="block">
+  <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600 hover:bg-pink-50 cursor-pointer">
+    Profile: <span class="text-gray-700 font-normal">Edit your profile info and avatar.</span>
+  </li>
+</a>
+   <a href="privacy.html" class="block">
+  <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600 hover:bg-pink-50 cursor-pointer">
+    Privacy: <span class="text-gray-700 font-normal">Control who can see your profile and posts.</span>
+  </li>
+</a>
+    <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600">Friends: <span class="text-gray-700 font-normal">Manage your friends list and requests.</span></li>
+    <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600">Chat: <span class="text-gray-700 font-normal">Chat settings and preferences.</span></li>
+    <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600 cursor-pointer"
+    onclick="toggleThemePicker()">
+  Theme: <span class="text-gray-700 font-normal">Switch between light and dark mode.</span>
+</li>
+    <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600 cursor-pointer"
+    onclick="logout()">
+  Logout: <span class="text-gray-700 font-normal">Log out of your account.</span>
+</li>
+    <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600">Blocked Users: <span class="text-gray-700 font-normal">View and manage blocked users.</span></li>
+    <a href="account-status.html" class="block">
+  <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600 hover:bg-pink-50 cursor-pointer">
+    Account Status: <span class="text-gray-700 font-normal">View your account status and subscription.</span>
+  </li>
+</a>
+    <a href="help-support.html" class="block">
+  <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600 hover:bg-pink-50 cursor-pointer">
+    Help & Support: <span class="text-gray-700 font-normal">Get help or contact support.</span>
+  </li>
+</a>
+   <!-- Delete -->
+<li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600 cursor-pointer"
+    onclick="openDeleteAccountModal()">
+  Delete Account: <span class="text-gray-700 font-normal">Permanently delete your account.</span>
+</li>
+
+<!-- Suspend -->
+<li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600 cursor-pointer"
+    onclick="suspendAccount()">
+  Suspend Account <span class="text-gray-700 font-normal">Temporarily suspend your account.</span>
+</li>
+</ul>
+
+  <!-- Delete Account Modal -->
+<div id="deleteAccountModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
+  <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-sm text-center">
+    <h3 class="text-xl font-bold text-pink-600 mb-4">Delete Account</h3>
+    <p class="mb-4 text-gray-700">Are you sure you want to delete your account? This action cannot be undone.</p>
+    <button id="confirmDeleteBtn" class="w-full bg-pink-600 text-white py-2 rounded-md font-semibold hover:bg-pink-700 mb-2">Yes, Delete My Account</button>
+    <button id="cancelDeleteBtn" class="w-full bg-gray-200 text-pink-600 py-2 rounded-md font-semibold hover:bg-gray-300">Cancel</button>
+  </div>
+</div>
+
+<!-- Code Verification Modal -->
+<div id="deleteVerifyModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
+  <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-sm text-center">
+    <h3 class="text-xl font-bold text-pink-600 mb-4">Verify Deletion</h3>
+    <p class="mb-4 text-gray-700">Enter the code sent to your email to confirm account deletion.</p>
+    <input type="text" id="deleteVerificationCode" maxlength="6" class="w-full px-4 py-2 border rounded-md mb-2" placeholder="Verification Code">
+    <button id="verifyDeleteBtn" class="w-full bg-pink-600 text-white py-2 rounded-md font-semibold hover:bg-pink-700 mb-2">Verify & Delete</button>
+    <button id="cancelVerifyBtn" class="w-full bg-gray-200 text-pink-600 py-2 rounded-md font-semibold hover:bg-gray-300">Cancel</button>
+  </div>
+</div>
+
+<!-- Code Sending Modal -->
+<div id="codeSendingModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
+  <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-sm text-center">
+    <h3 class="text-xl font-bold text-pink-600 mb-4">Sending Code...</h3>
+    <p class="mb-4 text-gray-700">Please wait while we send a verification code to your email.</p>
+    <div class="loader mx-auto mb-2" style="border: 4px solid #f3f3f3; border-top: 4px solid #ec4899; border-radius: 50%; width: 32px; height: 32px; animation: spin 1s linear infinite;"></div>
+  </div>
+</div>
+<style>
+@keyframes spin { 100% { transform: rotate(360deg); } }
+</style>
+<script src="./script/settings.js"></script>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Settings | LoveConnect</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .popup {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      min-width: 280px;
+      background: #fff;
+      color: #333;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      padding: 12px 18px;
+      z-index: 9999;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: fadeIn 0.3s;
+    }
+    .popup-success { border-left: 5px solid #ec4899; }
+    .popup-error { border-left: 5px solid #ef4444; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  </style>
+</head>
+<body class="bg-pink-50 min-h-screen flex flex-col items-center pt-10">
+  <div id="popup-container"></div>
+  <div class="flex items-center w-full max-w-lg px-4 mb-6">
+    <a href="settings.html" class="text-pink-600 hover:text-pink-800 flex items-center">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+      <span class="sr-only">Back</span>
+    </a>
+    <h2 class="text-2xl font-bold text-pink-600">Privacy Settings</h2>
+  </div>
+
+  <div class="w-full max-w-lg px-4 bg-white rounded-lg shadow p-6 space-y-8">
+    <h3 class="text-xl font-semibold text-pink-600">Control who can see and contact you</h3>
+    
+    <form id="privacyForm" class="space-y-6">
+
+      <!-- Profile visibility -->
+      <div>
+        <label class="block font-semibold text-gray-700 mb-2">Who can view your profile?</label>
+        <select id="profileVisibility" class="w-full border rounded px-3 py-2">
+          <option value="everyone">🌍 Everyone</option>
+          <option value="friends">👫 Friends Only</option>
+          <option value="private">🔒 Only Me</option>
+        </select>
+        <p class="text-sm text-gray-500 mt-1">Choose how visible your profile is across LoveConnect.</p>
+      </div>
+
+      <!-- Posts visibility -->
+      <div>
+        <label class="block font-semibold text-gray-700 mb-2">Who can see your posts?</label>
+        <select id="postsVisibility" class="w-full border rounded px-3 py-2">
+          <option value="everyone">🌍 Everyone</option>
+          <option value="friends">👫 Friends Only</option>
+          <option value="private">🔒 Only Me</option>
+        </select>
+        <p class="text-sm text-gray-500 mt-1">Limit who can read your thoughts, updates, and shared content.</p>
+      </div>
+
+      <!-- Last seen -->
+      <div>
+        <label class="block font-semibold text-gray-700 mb-2">Who can see your "Last Seen" status?</label>
+        <select id="lastSeenVisibility" class="w-full border rounded px-3 py-2">
+          <option value="everyone">🌍 Everyone</option>
+          <option value="friends">👫 Friends Only</option>
+          <option value="private">🔒 Nobody</option>
+        </select>
+        <p class="text-sm text-gray-500 mt-1">Control who knows when you were last active.</p>
+      </div>
+
+      <!-- Message requests -->
+      <div>
+        <label class="block font-semibold text-gray-700 mb-2">Who can send you messages?</label>
+        <select id="messagesVisibility" class="w-full border rounded px-3 py-2">
+          <option value="everyone">🌍 Everyone</option>
+          <option value="friends">👫 Friends Only</option>
+          <option value="private">🔒 Nobody</option>
+        </select>
+        <p class="text-sm text-gray-500 mt-1">Decide if strangers, only friends, or nobody can send you chat requests.</p>
+      </div>
+
+      <button type="submit" class="w-full py-2 rounded bg-pink-600 text-white font-bold hover:bg-pink-700">
+        Save Privacy Settings
+      </button>
+    </form>
+  </div>
+
+  <script>
+    function showPopup(message, type = 'success') {
+      const popup = document.createElement('div');
+      popup.className = `popup popup-${type}`;
+      popup.innerHTML = type === 'success'
+        ? `<svg width="20" height="20" fill="#ec4899"><circle cx="10" cy="10" r="10"/></svg>`
+        : `<svg width="20" height="20" fill="#ef4444"><circle cx="10" cy="10" r="10"/></svg>`;
+      popup.innerHTML += `<span>${message}</span>`;
+      document.getElementById('popup-container').appendChild(popup);
+      setTimeout(() => popup.remove(), 2500);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Apply theme
+      const theme = JSON.parse(localStorage.getItem('theme')) || { bg: '#fdf2f8', accent: '#ec4899' };
+      document.body.style.background = theme.bg;
+      document.querySelectorAll('.text-pink-600').forEach(el => { el.style.color = theme.accent; });
+      document.querySelectorAll('.bg-pink-600').forEach(el => { el.style.background = theme.accent; });
+
+      // Load user & privacy
+      const accounts = JSON.parse(localStorage.getItem('userAccounts') || '[]');
+      const idx = parseInt(localStorage.getItem('currentAccountIndex') || '0');
+      const user = accounts[idx];
+
+      if (user && user.privacy) {
+        document.getElementById('profileVisibility').value = user.privacy.profile || 'everyone';
+        document.getElementById('postsVisibility').value = user.privacy.posts || 'everyone';
+        document.getElementById('lastSeenVisibility').value = user.privacy.lastSeen || 'everyone';
+        document.getElementById('messagesVisibility').value = user.privacy.messages || 'everyone';
+      }
+
+      document.getElementById('privacyForm').onsubmit = async function(e) {
+        e.preventDefault();
+        if (!user) return showPopup('No user found.', 'error');
+
+        const profileVisibility = document.getElementById('profileVisibility').value;
+        const postsVisibility = document.getElementById('postsVisibility').value;
+        const lastSeenVisibility = document.getElementById('lastSeenVisibility').value;
+        const messagesVisibility = document.getElementById('messagesVisibility').value;
+
+        try {
+          const res = await fetch('/api/update-privacy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user.userId,
+              privacy: { 
+                profile: profileVisibility, 
+                posts: postsVisibility, 
+                lastSeen: lastSeenVisibility,
+                messages: messagesVisibility
+              }
+            })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            user.privacy = { 
+              profile: profileVisibility, 
+              posts: postsVisibility, 
+              lastSeen: lastSeenVisibility,
+              messages: messagesVisibility
+            };
+            accounts[idx] = user;
+            localStorage.setItem('userAccounts', JSON.stringify(accounts));
+            showPopup('Privacy settings updated!', 'success');
+          } else {
+            showPopup(data.message || 'Failed to update privacy.', 'error');
+          }
+        } catch {
+          showPopup('Network error.', 'error');
+        }
+      };
+    });
+  </script>
+</body>
+</html>

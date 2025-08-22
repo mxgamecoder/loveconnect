@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reels | LoveConnect</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    .popup {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fff;
+      color: #111;
+      padding: 12px 24px;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+      z-index: 9999;
+      font-weight: bold;
+      font-size: 1rem;
+      opacity: 0.95;
+    }
+      .video-loader {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    border: 4px solid rgba(255,255,255,0.3);
+    border-top: 4px solid #ec4899;
+    border-radius: 50%;
+    width: 40px; height: 40px;
+    animation: spin 1s linear infinite;
+    z-index: 20;
+  }
+  @keyframes spin {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+    .hidden { display: none !important; }
+    #commentModal {
+      background: #000;
+      color: white;
+    }
+    #commentList {
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 8px;
+    }
+    #reelsContainer {
+      height: calc(100vh - 56px); /* header height */
+      overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+    .reel {
+      scroll-snap-align: start;
+      height: calc(100vh - 56px);
+      min-height: calc(100vh - 56px);
+      width: 100vw;
+      position: relative;
+      background: #000;
+      color: #fff;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .reel-media {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 88%;
+      object-fit: contain;
+      background: #000;
+    }
+    .reel-caption {
+      position: absolute;
+      bottom: 0; left: 0; width: 100%;
+      background: rgba(0,0,0,0.7);
+      padding: 1rem 1.5rem 1.5rem 1.5rem;
+      z-index: 20;
+    }
+    .reel-actions {
+      position: absolute;
+      right: 1.2rem;
+      bottom: 7.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2.2rem;
+      z-index: 30;
+    }
+    .reel-actions button {
+      transition: transform 0.1s;
+    }
+    .reel-actions button:active {
+      transform: scale(0.9);
+    }
+    .reel-profile {
+      width: 3rem; height: 3rem;
+      border-radius: 9999px;
+      border: 2px solid #ec4899;
+      object-fit: cover;
+      margin-bottom: 0.5rem;
+    }
+    @media (max-width: 600px) {
+      .reel-caption { padding: 0.7rem 0.7rem 1rem 0.7rem; }
+      .reel-actions { right: 0.7rem; bottom: 6.5rem; gap: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="flex items-center text-pink-600 font-bold text-2xl p-4 shadow" style="height:56px;">
+    <button onclick="window.location.href='dashboard.html'"
+      class="mr-3 p-2 rounded-full bg-pink-100 hover:bg-pink-200 transition"
+      title="Back to Dashboard">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="#ec4899">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+    </button>
+    <span>Reels</span>
+  </header>
+  <main id="reelsContainer">
+    <div id="reelsList"></div>
+  </main>
+
+  <!-- Comment Modal (same as before) -->
+  <div id="commentModal" class="fixed inset-0 bg-black/80 hidden z-50 flex flex-col">
+    <div class="flex items-center justify-between p-3 border-b bg-gray-900 text-white">
+      <span class="font-semibold">Comments</span>
+      <button onclick="closeComments()" class="hover:text-pink-400 text-xl">✖</button>
+    </div>
+    <div class="flex-1 overflow-auto p-4 space-y-3" id="commentList"></div>
+    <div class="flex items-center gap-2 p-3 border-t bg-gray-900">
+      <img id="commentUserAvatar" class="w-8 h-8 rounded-full" src="" />
+      <input id="newCommentInput"
+             type="text"
+             placeholder="Write a comment..."
+             class="flex-1 rounded-full px-3 py-1 text-sm border text-black"/>
+      <button onclick="submitComment()" 
+              class="px-3 py-1 bg-pink-500 text-white rounded">Send</button>
+    </div>
+  </div>
+
+<script>
+    const theme = JSON.parse(localStorage.getItem('theme')) || { bg: '#111827', accent: '#ec4899' };
+document.body.style.background = theme.bg;
+document.body.style.color = getContrast(theme.bg);
+
+// Helper to get contrast color
+function getContrast(hex) {
+  hex = hex.replace('#', '');
+  const r = parseInt(hex.substr(0,2),16);
+  const g = parseInt(hex.substr(2,2),16);
+  const b = parseInt(hex.substr(4,2),16);
+  const brightness = (r*299 + g*587 + b*114) / 1000;
+  return brightness > 125 ? '#111' : '#fff';
+}
+  // Get current user info from localStorage
+  const accounts = JSON.parse(localStorage.getItem("userAccounts") || "[]");
+  const idx = parseInt(localStorage.getItem("currentAccountIndex") || "0");
+  const currentUser = accounts[idx] || {};
+
+  // Helper: fetch user profile by userId
+  async function getUserProfile(userId) {
+    const res = await fetch(`/api/profile/${userId}`);
+    if (!res.ok) return { username: userId, avatar: "default-avatar.png" };
+    const user = await res.json();
+    return {
+      username: user.username || userId,
+      avatar: user.avatar || "default-avatar.png"
+    };
+  }
+
+  // Add to your script in reels.html
+async function getFriendStatus(ownerId) {
+  if (ownerId === currentUser.userId) return "self";
+  const res = await fetch(`/api/profile/${ownerId}?viewerId=${currentUser.userId}`);
+  if (!res.ok) return "none";
+  const user = await res.json();
+  if (user.isFriend) return "friend";
+  if (user.requested) return "requested";
+  if (user.incoming) return "incoming";
+  return "none";
+}
+
+// Store loaded posts for modal logic
+  let lastLoadedPosts = [];
+  let activePostId = null;
+  let activePost = null;
+
+  // Fetch posts as reels (privacy respected)
+  async function loadReels() {
+  const userId = currentUser.userId;
+  const viewerId = currentUser.userId;
+  const res = await fetch(`/api/posts/reels/${viewerId}`);
+  const posts = await res.json();
+  lastLoadedPosts = posts;
+  localStorage.setItem("lastLoadedPosts", JSON.stringify(posts));
+  if (!posts.length) {
+    document.getElementById('reelsList').innerHTML = '<div class="text-center text-gray-500">No reels found.</div>';
+    return;
+  }
+
+  // Fetch user profiles for each post
+  const userProfiles = {};
+  for (const post of posts) {
+    if (!userProfiles[post.userId]) {
+      userProfiles[post.userId] = await getUserProfile(post.userId);
+    }
+  }
+
+  const reelHtmlArray = await Promise.all(posts.map(async post => {
+    const profile = userProfiles[post.userId];
+    const friendStatus = await getFriendStatus(post.userId);
+
+    // FIX: Define these variables!
+    let likeCount = post.likes?.length || 0;
+    let liked = post.likes?.includes(currentUser.userId);
+    let commentCount = post.comments?.length || 0;
+    let shareCount = post.shares || 0;
+
+    let followBtn = "";
+    if (friendStatus === "self") {
+      followBtn = `<span class="px-3 py-1 rounded bg-gray-400 text-white text-xs font-semibold">You</span>`;
+    } else if (friendStatus === "friend") {
+      followBtn = `<span class="px-3 py-1 rounded bg-green-500 text-white text-xs font-semibold">Following</span>`;
+    } else if (friendStatus === "requested") {
+      followBtn = `<span class="px-3 py-1 rounded bg-yellow-500 text-white text-xs font-semibold">Requested</span>`;
+    } else if (friendStatus === "incoming") {
+      followBtn = `<button class="px-3 py-1 rounded bg-green-600 text-white text-xs font-semibold" onclick="confirmFriend('${post.userId}')">Confirm</button>`;
+    } else {
+      followBtn = `<button class="px-3 py-1 rounded bg-pink-500 text-white text-xs font-semibold" onclick="addFriend('${post.userId}')">Follow</button>`;
+    }
+
+    return `
+      <div class="reel" data-postid="${post.postId}">
+        ${post.type === "video"
+          ? `<div style="position:relative;width:100%;height:88%;">
+  <video src="${post.mediaUrl}" autoplay loop playsinline
+    class="reel-media"
+    style="width:100%;height:100%;"
+    onclick="toggleVideoPlay(this, event)"
+    onwaiting="showLoader(this)"
+    onplaying="hideLoader(this)"
+    oncanplay="hideLoader(this)"
+    oncanplaythrough="hideLoader(this)"
+    onended="hideLoader(this)"
+    onerror="hideLoader(this)">
+  </video>
+  <div class="video-loader hidden"></div>
+            <button class="custom-player-btn"
+  onclick="toggleVideoPlay(this.previousElementSibling, event)"
+  style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10;pointer-events:auto;padding:0.5rem;">
+  <span id="playPauseIcon-${post.postId}" style="font-size:3rem;"></span>
+</button>
+            <div class="video-speed-left" 
+                 onmousedown="startSeek(this.previousElementSibling.previousElementSibling, -1, event)" 
+                 onmouseup="stopSeek()" 
+                 ontouchstart="startSeek(this.previousElementSibling.previousElementSibling, -1, event)" 
+                 ontouchend="stopSeek()"
+                 style="position:absolute;top:0;left:0;width:30%;height:100%;z-index:9;cursor:pointer;"></div>
+            <div class="video-speed-right" 
+                 onmousedown="startSeek(this.previousElementSibling.previousElementSibling.previousElementSibling, 1, event)" 
+                 onmouseup="stopSeek()" 
+                 ontouchstart="startSeek(this.previousElementSibling.previousElementSibling.previousElementSibling, 1, event)" 
+                 ontouchend="stopSeek()"
+                 style="position:absolute;top:0;right:0;width:30%;height:100%;z-index:9;cursor:pointer;"></div>
+       </div>`
+          : post.type === "picture"
+            ? `<img src="${post.mediaUrl}" class="reel-media"/>`
+            : `<div class="flex items-center justify-center h-[88%] w-full text-lg font-semibold text-center px-6">${post.message}</div>`
+        }
+
+        <div class="reel-caption">
+          <div class="flex items-center gap-2 mb-1">
+            <div class="font-bold text-pink-400">@${profile.username}</div>
+            ${followBtn}
+          </div>
+          <div class="text-sm whitespace-pre-line break-words text-white">${post.caption || ""}</div>
+          <div class="text-blue-400 text-sm">${post.hashtags?.map(tag => `#${tag}`).join(" ")}</div>
+        </div>
+
+         <div class="reel-actions">
+      <a href="view-profile.html?userId=${post.userId}">
+        <img src="${profile.avatar}" class="reel-profile" style="border-color:${theme.accent};"/>
+      </a>
+          <button class="flex flex-col items-center text-pink-500 text-2xl" onclick="likePost('${post.postId}', this)">
+            ${liked ? '<span style="color:#ec4899">❤️</span>' : '❤️'}
+            <span class="text-sm">${likeCount || ""}</span>
+          </button>
+          ${post.allowComments !== "off" ? `
+          <button class="flex flex-col items-center text-blue-400 text-2xl" onclick="openComments('${post.postId}')">
+            💬<span class="text-sm">${commentCount || ""}</span>
+          </button>
+` : ""}
+          <button class="flex flex-col items-center text-gray-200 text-2xl" onclick="sharePost('${post.postId}', this)">
+            ↗️<span class="text-sm">${shareCount || ""}</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }));
+
+  document.getElementById('reelsList').innerHTML = reelHtmlArray.join('');
+  setupVideoAutoPlay(); // <-- call this right after rendering
+}
+
+  // Like post
+  window.likePost = async function(postId, btn) {
+    btn.disabled = true;
+    const res = await fetch(`/api/post/${postId}/like`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: currentUser.userId })
+    });
+    btn.disabled = false;
+    if (res.ok) {
+      const data = await res.json();
+      btn.innerHTML = (data.likes > 0 ? `❤️<span class="text-sm"> ${data.likes}</span>` : "❤️");
+      showPopup(data.likes > 0 ? "Liked!" : "Unliked!", "success");
+    } else {
+      showPopup("Failed to like post.", "error");
+    }
+  };
+
+  // Share post
+  window.sharePost = async function(postId, btn) {
+    const url = `${window.location.origin}/post-view.html?postId=${postId}`;
+    navigator.clipboard.writeText(url);
+    showPopup("Share link copied!");
+
+    // Increment share count in backend only once per user
+    const res = await fetch(`/api/post/${postId}/share`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: currentUser.userId })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      btn.innerHTML = `↗️<span class="text-sm">${data.shares > 0 ? ` ${data.shares}` : ""}</span>`;
+    }
+  };
+
+  // --- COMMENT MODAL LOGIC (same as before) ---
+  window.openComments = function(postId) {
+  const post = lastLoadedPosts.find(p => p.postId === postId);
+  if (!post || post.allowComments === "off") {
+    showPopup("Comments are turned off for this post.", "error");
+    return;
+  }
+
+    activePostId = postId;
+    const posts = lastLoadedPosts;
+    activePost = posts.find(p => p.postId === postId);
+
+    if (!activePost) {
+      showPopup("Post not found.", "error");
+      return;
+    }
+
+    document.getElementById("commentModal").classList.remove("hidden");
+    document.getElementById("commentUserAvatar").src = currentUser.avatar;
+    document.getElementById("newCommentInput").value = "";
+    delete document.getElementById("newCommentInput").dataset.replyTo;
+    renderComments(activePost.comments || []);
+  };
+
+  window.closeComments = function() {
+    document.getElementById("commentModal").classList.add("hidden");
+    document.getElementById("commentList").innerHTML = "";
+    activePostId = null;
+    activePost = null;
+  };
+
+  function renderComments(comments) {
+    const container = document.getElementById("commentList");
+    if (!comments || comments.length === 0) {
+      container.innerHTML = `<div class="text-center text-gray-400">Be the first to comment</div>`;
+      return;
+    }
+    container.innerHTML = comments.map(c => renderComment(c)).join("");
+  }
+
+  function renderComment(comment) {
+    const hasReplies = comment.replies && comment.replies.length > 0;
+    const repliesHTML = hasReplies ? `
+      <button onclick="toggleReplies('${comment.commentId}')" 
+              class="ml-8 text-xs text-gray-500 hover:underline mt-1">
+        View Replies (${comment.replies.length})
+      </button>
+      <div id="replies-${comment.commentId}" class="ml-12 mt-1 space-y-1 hidden">
+        ${comment.replies.map(r => `
+          <div class="flex items-center gap-2">
+            <a href="view-profile.html?userId=${r.userId}">
+              <img src="${r.avatar}" class="w-5 h-5 rounded-full cursor-pointer"/>
+            </a>
+            <span class="font-semibold">${r.username}</span>
+            <span class="text-xs text-gray-500">${new Date(r.createdAt).toLocaleString()}</span>
+            <span>: ${r.text}</span>
+          </div>
+        `).join("")}
+      </div>
+    ` : '';
+
+    return `
+      <div class="rounded-lg p-2">
+        <div class="flex items-center gap-2">
+          <a href="view-profile.html?userId=${comment.userId}">
+            <img src="${comment.avatar}" class="w-6 h-6 rounded-full cursor-pointer"/>
+          </a>
+          <span class="font-semibold">${comment.username}</span>
+          <span class="text-xs text-gray-500">${new Date(comment.createdAt).toLocaleString()}</span>
+        </div>
+        <div class="ml-8 mt-1">${comment.text}</div>
+        <button onclick="showReplyBox('${comment.commentId}')" 
+                class="ml-8 text-xs text-blue-500 hover:underline mt-1">
+          Reply
+        </button>
+        ${repliesHTML}
+      </div>
+    `;
+  }
+
+  function toggleReplies(commentId) {
+    const el = document.getElementById(`replies-${commentId}`);
+    if (!el) return;
+    el.classList.toggle('hidden');
+  }
+
+  function showReplyBox(commentId) {
+    const comment = activePost.comments.find(c => c.commentId === commentId);
+    if (!comment) return;
+
+    const input = document.getElementById("newCommentInput");
+    input.value = "";
+    input.focus();
+    input.dataset.replyTo = commentId;
+    input.placeholder = `Reply to ${comment.username}...`;
+  }
+
+  window.submitComment = async function() {
+    const input = document.getElementById("newCommentInput");
+    const sendBtn = input.nextElementSibling;
+    const text = input.value.trim();
+    if (!text) return showPopup("Type something!", "error");
+
+    sendBtn.disabled = true;
+    const originalText = sendBtn.textContent;
+    sendBtn.textContent = "Sending...";
+
+    const replyTo = input.dataset.replyTo;
+    let url = `/api/post/${activePostId}/comment`;
+    if (replyTo) {
+      url = `/api/post/${activePostId}/comment/${replyTo}/reply`;
+    }
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: currentUser.userId, text })
+    });
+
+    sendBtn.disabled = false;
+    sendBtn.textContent = originalText;
+
+    if (res.ok) {
+      const updated = await res.json();
+      activePost.comments = updated.comments;
+      renderComments(activePost.comments);
+      updateCommentCount(activePostId, activePost.comments.length);
+      input.value = "";
+      input.placeholder = "Write a comment...";
+      delete input.dataset.replyTo;
+    } else {
+      showPopup("Failed to submit comment.", "error");
+    }
+  };
+
+  function updateCommentCount(postId, newCount) {
+    // Find the comment button for this post and update its text
+    const postCards = document.querySelectorAll("#reelsList > .reel");
+    postCards.forEach(card => {
+      const btns = card.querySelectorAll('button');
+      btns.forEach(btn => {
+        if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(`openComments('${postId}')`)) {
+          btn.innerHTML = `💬<span class="text-sm">${newCount > 0 ? ` ${newCount}` : ""}</span>`;
+        }
+      });
+    });
+  }
+
+  document.getElementById("newCommentInput").addEventListener("keydown", function(e) {
+    const input = this;
+    if ((e.key === "Backspace" || e.key === "Delete") && input.placeholder.startsWith("Reply to")) {
+      if (input.value === "") {
+        e.preventDefault();
+        const popup = document.createElement('div');
+        popup.className = 'popup popup-error';
+        popup.innerHTML = `
+          <span>Are you sure you want to clear reply context?</span>
+          <button id="replyClearYes" class="ml-2 px-2 py-1 rounded bg-pink-500 text-white">Yes</button>
+          <button id="replyClearNo" class="ml-2 px-2 py-1 rounded bg-gray-300 text-black">No</button>
+        `;
+        document.body.appendChild(popup);
+
+        document.getElementById('replyClearYes').onclick = () => {
+          input.placeholder = "Write a comment...";
+          delete input.dataset.replyTo;
+          popup.remove();
+        };
+        document.getElementById('replyClearNo').onclick = () => {
+          popup.remove();
+        };
+      }
+    }
+  });
+
+  function showPopup(message, type = "info") {
+    const popup = document.createElement("div");
+    popup.className = `popup popup-${type}`;
+    popup.innerHTML = `<span>${message}</span>`;
+    document.body.appendChild(popup);
+    setTimeout(() => popup.remove(), 2500);
+  }
+
+  function shuffleArray(array) {
+  let arr = array.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+  loadReels();
+
+window.toggleVideoPlay = function(video, e) {
+  e.stopPropagation();
+  const icon = document.getElementById(`playPauseIcon-${video.closest('.reel').dataset.postid}`);
+  if (video.paused) {
+    video.play();
+    if (icon) icon.textContent = '';
+  } else {
+    video.pause();
+    if (icon) icon.textContent = '';
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.reel-media').forEach(video => {
+    video.addEventListener('play', function() {
+      const icon = document.getElementById(`playPauseIcon-${video.closest('.reel').dataset.postid}`);
+      if (icon) icon.textContent = '';
+    });
+    video.addEventListener('pause', function() {
+      const icon = document.getElementById(`playPauseIcon-${video.closest('.reel').dataset.postid}`);
+      if (icon) icon.textContent = '';
+    });
+  });
+});
+
+// Seek logic
+let seekInterval = null;
+window.startSeek = function(video, direction, e) {
+  e.preventDefault();
+  if (!video || video.tagName !== 'VIDEO') return;
+  seekInterval = setInterval(() => {
+    video.currentTime += direction * 2; // 2x forward/backward per interval
+  }, 200);
+};
+window.stopSeek = function() {
+  if (seekInterval) clearInterval(seekInterval);
+  seekInterval = null;
+};
+
+function askSoundPermission() {
+  if (localStorage.getItem('videoSoundAllowed')) return;
+
+  const popup = document.createElement('div');
+  popup.className = 'popup popup-info';
+  popup.innerHTML = `
+    <div style="margin-bottom:1rem; display:block; width:100%; text-align:center;">
+      Allow reels to play with sound?
+    </div>
+    <div style="display:flex; justify-content:center; flex-wrap:wrap; gap:10px;">
+      <button id="allowSound" style="flex:1; min-width:100px; padding:10px 16px; border-radius:8px; background:#ec4899; color:white; border:none;">Allow</button>
+      <button id="denySound" style="flex:1; min-width:100px; padding:10px 16px; border-radius:8px; background:#e5e7eb; color:black; border:none;">Mute</button>
+    </div>
+  `;
+
+  // styles for centering & responsiveness
+  popup.style.position = "fixed";
+  popup.style.top = "50%";
+  popup.style.left = "50%";
+  popup.style.transform = "translate(-50%, -50%)";
+  popup.style.background = "white";
+  popup.style.padding = "20px";
+  popup.style.borderRadius = "12px";
+  popup.style.boxShadow = "0px 6px 16px rgba(0,0,0,0.25)";
+  popup.style.zIndex = "1000";
+  popup.style.textAlign = "center";
+  popup.style.maxWidth = "90%";   // fit small phones
+  popup.style.wordWrap = "break-word";
+
+  document.body.appendChild(popup);
+
+  // button functionality
+  document.getElementById('allowSound').onclick = () => {
+    localStorage.setItem('videoSoundAllowed', 'true');
+    popup.remove();
+    enableVideoSound();
+  };
+  document.getElementById('denySound').onclick = () => {
+    localStorage.setItem('videoSoundAllowed', 'false');
+    popup.remove();
+    enableVideoSound();
+  };
+}
+
+function enableVideoSound() {
+  const allowSound = localStorage.getItem('videoSoundAllowed') === 'true';
+  document.querySelectorAll('.reel-media').forEach(video => {
+    if (video.tagName === 'VIDEO') {
+      video.muted = !allowSound;
+      if (allowSound) {
+        video.play().catch(()=>{}); // Try to play with sound
+      }
+    }
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadReels().then(() => {
+    // Ask sound permission only if not already chosen
+    if (!localStorage.getItem("videoSoundAllowed")) {
+      askSoundPermission();
+    } else {
+      enableVideoSound();
+    }
+  });
+});
+
+window.addFriend = async function(targetId) {
+  await fetch('/api/add-friend', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: currentUser.userId, targetId })
+  });
+  showPopup("Follow request sent!", "success");
+  loadReels();
+};
+
+window.confirmFriend = async function(requesterId) {
+  await fetch('/api/confirm-friend', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: currentUser.userId, requesterId })
+  });
+  showPopup("Follow confirmed!", "success");
+  loadReels();
+};
+
+window.showLoader = function(video) {
+  const loader = video.parentElement.querySelector(".video-loader");
+  if (loader) loader.classList.remove("hidden");
+};
+
+window.hideLoader = function(video) {
+  const loader = video.parentElement.querySelector(".video-loader");
+  if (loader) loader.classList.add("hidden");
+};
+
+function setupVideoAutoPlay() {
+  const videos = document.querySelectorAll('.reel-media');
+  const allowSound = localStorage.getItem('videoSoundAllowed') === 'true';
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      const video = entry.target;
+      if (entry.isIntersecting) {
+        video.muted = !allowSound;
+        video.play().catch(()=>{});
+      } else {
+        video.pause();
+      }
+    });
+  }, { threshold: 0.7 }); // 70% visible
+
+  videos.forEach(video => {
+    if (video.tagName === "VIDEO") observer.observe(video);
+  });
+}
+
+setupVideoAutoPlay();
+
+</script>
+</body>
+</html>

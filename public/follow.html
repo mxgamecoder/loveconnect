@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connections | LoveConnect</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <style>
+    .online-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:6px; }
+    .online { background:#22c55e; }
+    .offline { background:#d1d5db; }
+  </style>
+</head>
+<body class="bg-pink-50 min-h-screen flex flex-col items-center pt-10">
+  <div class="w-full max-w-lg px-4 bg-white rounded-lg shadow p-6">
+
+    <!-- Back button -->
+    <div class="flex items-center mb-4">
+      <button onclick="history.back()" class="flex items-center text-pink-600 font-semibold hover:underline">
+        ← Back
+      </button>
+      <h2 class="text-2xl font-bold text-pink-600 flex-1 text-center">Connections</h2>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex justify-around border-b mb-4">
+      <button id="tab-people" class="py-2 font-semibold text-pink-600 border-b-2 border-pink-600">People You May Know</button>
+      <button id="tab-followers" class="py-2 font-semibold text-gray-500">Requests</button>
+    </div>
+
+    <!-- Sections -->
+    <div id="peopleSection" class="space-y-4"></div>
+    <div id="followersSection" class="space-y-4 hidden"></div>
+
+  </div>
+
+  <script>
+    const socket = io('');
+    let accounts = JSON.parse(localStorage.getItem('userAccounts') || '[]');
+    let idx = parseInt(localStorage.getItem('currentAccountIndex') || '0');
+    let user = accounts[idx];
+
+    const theme = JSON.parse(localStorage.getItem('theme')) || { bg: '#fdf2f8', accent: '#ec4899' };
+    document.body.style.background = theme.bg;
+    document.querySelectorAll('.text-pink-600').forEach(el => { el.style.color = theme.accent; });
+    document.querySelectorAll('.bg-pink-600').forEach(el => { el.style.background = theme.accent; });
+
+    // Mark online
+    socket.emit('online', user.userId);
+
+    // Fetch users
+    async function loadUsers() {
+  const res = await fetch(`/api/users/${user.userId}`);
+  let users = await res.json();
+
+  // Shuffle array randomly
+  users = users.sort(() => Math.random() - 0.5);
+
+  // Limit to 5 suggestions
+  users = users.slice(0, 5);
+
+  const peopleSection = document.getElementById('peopleSection');
+  peopleSection.innerHTML = '';
+
+      users.forEach(u => {
+        // Skip already friends
+        // Skip already friends (backend also does but safe)
+if (u.isFriend) return;
+
+// Skip if they requested me (backend already filtered, but just in case)
+if (u.incoming) return;
+
+
+let buttonHTML = '';
+if (u.friends && u.friends.includes(user.userId)) {
+  buttonHTML = `<button class="bg-gray-400 text-white px-3 py-1 rounded" disabled>Already Friends</button>`;
+} 
+// If I already sent them a request
+else if (u.requested) {
+  buttonHTML = `<button class="bg-yellow-500 text-white px-3 py-1 rounded font-semibold" onclick="cancelRequest('${u.userId}')">Cancel Request</button>`;
+} 
+// If they already sent me a request
+else if (u.incoming) {
+  buttonHTML = `<button class="bg-green-600 text-white px-3 py-1 rounded font-semibold" onclick="confirmFriend('${u.userId}')">Confirm Request</button>`;
+}
+// Otherwise → normal add
+else {
+  buttonHTML = `<button class="bg-pink-600 text-white px-3 py-1 rounded font-semibold" onclick="addFriend('${u.userId}')">Add Friend</button>`;
+}
+
+        peopleSection.innerHTML += `
+          <div class="flex items-center gap-4 bg-pink-50 rounded p-3">
+          <a href="view-profile.html?userId=${u.userId}" class="flex items-center gap-2 flex-1 hover:underline">
+            <img src="${u.avatar}" class="w-12 h-12 rounded-full border-2 border-pink-500 object-cover" />
+            <div>
+              <div class="font-bold text-pink-600">${u.fullName}</div>
+              <div class="text-xs text-gray-500">@${u.username}</div>
+            </div>
+          </a>
+            <span class="online-dot ${u.online ? 'online' : 'offline'}"></span>
+            <span class="text-xs">${u.online ? 'Online' : 'Offline'}</span>
+            ${buttonHTML}
+          </div>
+        `;
+      });
+    }
+
+// Fetch followers
+async function loadFollowers() {
+  const res = await fetch(`/api/followers/${user.userId}`);
+  const followers = await res.json();
+  const followersSection = document.getElementById('followersSection');
+  followersSection.innerHTML = '';
+
+  if (followers.length === 0) {
+    followersSection.innerHTML = `<p class="text-center text-gray-500">No requests yet.</p>`;
+    return;
+  }
+
+  followers.forEach(u => {
+followersSection.innerHTML += `
+  <div class="flex items-center gap-4 bg-pink-50 rounded p-3">
+    <a href="view-profile.html?userId=${u.userId}" class="flex items-center gap-2 flex-1 hover:underline">
+      <img src="${u.avatar}" class="w-12 h-12 rounded-full border-2 border-pink-500 object-cover" />
+      <div>
+        <div class="font-bold text-pink-600">${u.fullName}</div>
+        <div class="text-xs text-gray-500">@${u.username}</div>
+        <span class="online-dot ${u.online ? 'online' : 'offline'}"></span>
+        <span class="text-xs">${u.online ? 'Online' : 'Offline'}</span>
+      </div>
+    </a>
+    <button class="bg-green-600 text-white px-3 py-1 rounded font-semibold" onclick="confirmFriend('${u.userId}')">Confirm</button>
+    <button class="bg-red-500 text-white px-3 py-1 rounded font-semibold" onclick="deleteRequest('${u.userId}')">Delete</button>
+  </div>
+`;
+  });
+}
+
+    // Add Friend
+    window.addFriend = async function(targetId) {
+      await fetch('/api/add-friend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.userId, targetId })
+      });
+      loadUsers();
+      loadFollowers();
+    };
+
+    // Confirm Friend
+    window.confirmFriend = async function(requesterId) {
+      await fetch('/api/confirm-friend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.userId, requesterId })
+      });
+      loadUsers();
+      loadFollowers();
+    };
+
+    // Cancel a request I sent
+window.cancelRequest = async function(targetId) {
+  await fetch('/api/cancel-request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: user.userId, targetId })
+  });
+  loadUsers();
+  loadFollowers();
+};
+
+// Delete a request I received
+window.deleteRequest = async function(requesterId) {
+  await fetch('/api/delete-request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: user.userId, requesterId })
+  });
+  loadUsers();
+  loadFollowers();
+};
+
+
+    // Online status updates
+    socket.on('status', ({ userId, online }) => {
+      loadUsers();
+      loadFollowers();
+    });
+
+    // Tab toggle
+    document.getElementById('tab-people').onclick = () => {
+      document.getElementById('peopleSection').classList.remove('hidden');
+      document.getElementById('followersSection').classList.add('hidden');
+      document.getElementById('tab-people').classList.add('text-pink-600','border-b-2','border-pink-600');
+      document.getElementById('tab-followers').classList.remove('text-pink-600','border-b-2','border-pink-600');
+      document.getElementById('tab-followers').classList.add('text-gray-500');
+    };
+
+    document.getElementById('tab-followers').onclick = () => {
+      document.getElementById('followersSection').classList.remove('hidden');
+      document.getElementById('peopleSection').classList.add('hidden');
+      document.getElementById('tab-followers').classList.add('text-pink-600','border-b-2','border-pink-600');
+      document.getElementById('tab-people').classList.remove('text-pink-600','border-b-2','border-pink-600');
+      document.getElementById('tab-people').classList.add('text-gray-500');
+      loadFollowers();
+    };
+
+    // Initial load
+    loadUsers();
+    loadFollowers();
+  </script>
+</body>
+</html>
