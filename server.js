@@ -6,6 +6,7 @@ require('dotenv').config();
 const User = require('./models/User'); // ✅ add this
 const path = require('path');
 const fs = require('fs');
+const adminRoutes = require('./routes/admin');
 
 const app = express(); // ✅ must be before http.createServer
 
@@ -43,6 +44,8 @@ app.use('/api', user);
 
 const post = require('./routes/posts');
 app.use('/api', post);
+
+app.use('/api', adminRoutes);
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
