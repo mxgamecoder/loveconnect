@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Love Connect Admin Panel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <div id="loginBox" class="flex flex-col items-center justify-center min-h-screen">
+    <div class="bg-white p-8 rounded shadow w-80">
+      <h2 class="text-2xl font-bold mb-4 text-pink-600">Admin Login</h2>
+      <input id="adminName" class="w-full mb-3 px-3 py-2 border rounded" placeholder="Admin Name">
+      <input id="adminPass" type="password" class="w-full mb-3 px-3 py-2 border rounded" placeholder="Password">
+      <button onclick="adminLogin()" class="w-full bg-pink-500 text-white py-2 rounded">Login</button>
+      <div id="loginError" class="text-red-500 mt-2 text-sm"></div>
+    </div>
+  </div>
+
+  <div id="adminPanel" class="hidden p-6">
+    <h1 class="text-3xl font-bold text-pink-600 mb-6">Love Connect Admin Panel</h1>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Stats -->
+      <div class="bg-white rounded shadow p-4">
+        <h2 class="text-xl font-semibold mb-2">Site Stats</h2>
+        <div>Total Users: <span id="totalUsers" class="font-bold"></span></div>
+        <div>Online Users: <span id="onlineUsers" class="font-bold"></span></div>
+      </div>
+      <!-- Reports -->
+      <div class="bg-white rounded shadow p-4">
+        <h2 class="text-xl font-semibold mb-2">Reports</h2>
+        <div id="reportList" class="max-h-48 overflow-auto text-sm"></div>
+      </div>
+      <!-- Users -->
+      <div class="bg-white rounded shadow p-4 col-span-2">
+        <h2 class="text-xl font-semibold mb-2">Users</h2>
+        <div id="userList" class="max-h-48 overflow-auto text-sm"></div>
+      </div>
+      <!-- Posts -->
+      <div class="bg-white rounded shadow p-4 col-span-2">
+        <h2 class="text-xl font-semibold mb-2">Posts</h2>
+        <div id="postList" class="max-h-48 overflow-auto text-sm"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function adminLogin() {
+      const name = document.getElementById('adminName').value.trim();
+      const password = document.getElementById('adminPass').value.trim();
+      fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, password })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          document.getElementById('loginBox').classList.add('hidden');
+          document.getElementById('adminPanel').classList.remove('hidden');
+          loadStats();
+        } else {
+          document.getElementById('loginError').textContent = "Invalid credentials";
+        }
+      });
+    }
+
+    async function loadStats() {
+      // Users
+      const totalUsers = await fetch('/api/admin/total-users').then(r=>r.json()).then(d=>d.count);
+      const onlineUsers = await fetch('/api/admin/online-users').then(r=>r.json()).then(d=>d.count);
+      document.getElementById('totalUsers').textContent = totalUsers;
+      document.getElementById('onlineUsers').textContent = onlineUsers;
+
+      // Reports
+      const reports = await fetch('/api/admin/reports').then(r=>r.json());
+      document.getElementById('reportList').innerHTML = reports.length
+        ? reports.map(r => `<div class="mb-2 border-b pb-1"><b>From:</b> ${r.reporter}<br><b>About:</b> ${r.reported}<br><b>Reason:</b> ${r.reason}<br><b>Time:</b> ${new Date(r.time).toLocaleString()}</div>`).join('')
+        : '<div class="text-gray-400">No reports</div>';
+
+      // Users
+      const users = await fetch('/api/admin/users').then(r=>r.json());
+      document.getElementById('userList').innerHTML = users.length
+        ? users.map(u => `<div class="mb-1 flex items-center gap-2"><img src="${u.avatar}" class="w-6 h-6 rounded-full"/> <b>@${u.username}</b> (${u.fullName}) - <span class="${u.online ? 'text-green-600' : 'text-gray-400'}">${u.online ? 'Online' : 'Offline'}</span></div>`).join('')
+        : '<div class="text-gray-400">No users</div>';
+
+      // Posts
+      const posts = await fetch('/api/admin/posts').then(r=>r.json());
+      document.getElementById('postList').innerHTML = posts.length
+        ? posts.map(p => `<div class="mb-1"><b>${p.type.toUpperCase()}</b> by <b>${p.userId}</b> <span class="text-xs text-gray-500">${new Date(p.createdAt).toLocaleString()}</span><br>${p.message || p.caption || ''}</div>`).join('')
+        : '<div class="text-gray-400">No posts</div>';
+    }
+  </script>
+</body>
+</html>
