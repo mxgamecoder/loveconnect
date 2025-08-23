@@ -146,14 +146,26 @@
       img.src = URL.createObjectURL(file);
       img.className = "w-40 h-40 object-cover rounded-xl shadow";
       preview.appendChild(img);
+      postData = { type: postType, file };
     } else {
       const vid = document.createElement("video");
       vid.src = URL.createObjectURL(file);
       vid.controls = true;
       vid.className = "w-40 h-40 rounded-xl shadow";
       preview.appendChild(vid);
+
+      // Check video duration before allowing next
+      vid.onloadedmetadata = function () {
+        if (vid.duration > 600) { // 600 seconds = 10 minutes
+          showPopup("Video must be 10 minutes or less.", "error");
+          preview.innerHTML = "";
+          postData = {};
+          document.getElementById("mediaInput").value = "";
+        } else {
+          postData = { type: postType, file };
+        }
+      };
     }
-    postData = { type: postType, file };
   };
 
   document.getElementById("mediaNextBtn").onclick = function () {
@@ -175,6 +187,10 @@
 
   // FINAL SUBMIT
   document.getElementById("postBtn").onclick = async function () {
+    postBtn.disabled = true;
+    const originalText = postBtn.textContent;
+    postBtn.textContent = "Posting...";
+
     postData.allowComments = document.getElementById("allowComments").value;
     postData.location = document.getElementById("location").value.trim();
 
@@ -211,6 +227,8 @@
 
       if (!response.ok) {
         showPopup(result.message || "Something went wrong", "error");
+        postBtn.disabled = false;
+        postBtn.textContent = originalText;
         return;
       }
 
@@ -220,6 +238,8 @@
       }, 1200);
     } catch (err) {
       showPopup("Network error, please try again", "error");
+      postBtn.disabled = false;
+      postBtn.textContent = originalText;
     }
   };
 </script>

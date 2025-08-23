@@ -62,7 +62,7 @@
       <h2 class="text-2xl font-bold text-pink-600">Profile</h2>
     </div>
 
-    <form id="profileForm" class="space-y-5 bg-white rounded-lg shadow p-5">
+    <form id="profileForm" class="space-y-5 rounded-lg shadow p-5">
       <div class="flex flex-col items-center mb-2">
         <div class="relative w-20 h-20">
           <img id="avatarPreview" class="w-20 h-20 rounded-full border-4 border-pink-500 object-cover" />
@@ -204,6 +204,19 @@
       document.getElementById('phoneNumber').value = user.phoneNumber || '';
       document.getElementById('gender').value = user.gender || 'Male';
       document.getElementById('dob').value = user.dob ? user.dob.split('T')[0] : '';
+
+      // Show verification status
+      const isVerifiedEl = document.getElementById('isVerified');
+      const verifyBoxEl = document.getElementById('verifyBox');
+      if (user.isVerified) {
+        isVerifiedEl.textContent = '✅ Verified';
+        isVerifiedEl.className = 'text-green-600 font-bold';
+        if (verifyBoxEl) verifyBoxEl.innerHTML = '';
+      } else {
+        isVerifiedEl.textContent = '❌ Not Verified';
+        isVerifiedEl.className = 'text-red-600 font-bold';
+        if (verifyBoxEl) verifyBoxEl.innerHTML = `<button onclick="showVerifyPrompt()" class="bg-pink-500 text-white px-4 py-2 rounded font-semibold">Verify Now</button>`;
+      }
 
     });
 

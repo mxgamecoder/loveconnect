@@ -13,7 +13,7 @@
   </style>
 </head>
 <body class="bg-pink-50 min-h-screen flex flex-col items-center pt-10">
-  <div class="w-full max-w-lg px-4 bg-white rounded-lg shadow p-6">
+  <div class="w-full max-w-lg px-4 rounded-lg shadow p-6">
 
     <!-- Back button -->
     <div class="flex items-center mb-4">
@@ -29,6 +29,12 @@
       <button id="tab-followers" class="py-2 font-semibold text-gray-500">Requests</button>
     </div>
 
+    <!-- Search Bar -->
+<div class="flex items-center mb-4">
+  <input id="searchInput" type="text" placeholder="Search users..." class="flex-1 px-3 py-2 border rounded focus:outline-none focus:border-pink-400" oninput="filterUsers()" />
+  <button onclick="clearSearch()" class="ml-2 px-3 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-700">Clear</button>
+</div>
+
     <!-- Sections -->
     <div id="peopleSection" class="space-y-4"></div>
     <div id="followersSection" class="space-y-4 hidden"></div>
@@ -36,6 +42,8 @@
   </div>
 
   <script>
+    let allPeople = [];
+let allFollowers = [];
     const socket = io('');
     let accounts = JSON.parse(localStorage.getItem('userAccounts') || '[]');
     let idx = parseInt(localStorage.getItem('currentAccountIndex') || '0');
@@ -94,8 +102,8 @@ else {
           <a href="view-profile.html?userId=${u.userId}" class="flex items-center gap-2 flex-1 hover:underline">
             <img src="${u.avatar}" class="w-12 h-12 rounded-full border-2 border-pink-500 object-cover" />
             <div>
-              <div class="font-bold text-pink-600">${u.fullName}</div>
-              <div class="text-xs text-gray-500">@${u.username}</div>
+              <div class="font-bold text-pink-600 max-w-[120px] truncate" title="${u.fullName}">${u.fullName}</div>
+              <div class="text-xs text-gray-500 max-w-[120px] truncate" title="@${u.username}">@${u.username}</div>
             </div>
           </a>
             <span class="online-dot ${u.online ? 'online' : 'offline'}"></span>
@@ -107,36 +115,83 @@ else {
     }
 
 // Fetch followers
-async function loadFollowers() {
-  const res = await fetch(`/api/followers/${user.userId}`);
-  const followers = await res.json();
-  const followersSection = document.getElementById('followersSection');
-  followersSection.innerHTML = '';
+async function loadUsers() {
+  const res = await fetch(`/api/users/${user.userId}`);
+  let users = await res.json();
+  users = users.sort(() => Math.random() - 0.5).slice(0, 5);
+  allPeople = users; // Store for search
+  renderPeople(users);
+}
 
-  if (followers.length === 0) {
-    followersSection.innerHTML = `<p class="text-center text-gray-500">No requests yet.</p>`;
+function renderPeople(users) {
+  const peopleSection = document.getElementById('peopleSection');
+  peopleSection.innerHTML = '';
+  if (users.length === 0) {
+    peopleSection.innerHTML = `<div class="text-center text-gray-500 py-8">No users found. Try searching with a different name or username!</div>`;
     return;
   }
-
-  followers.forEach(u => {
-followersSection.innerHTML += `
-  <div class="flex items-center gap-4 bg-pink-50 rounded p-3">
-    <a href="view-profile.html?userId=${u.userId}" class="flex items-center gap-2 flex-1 hover:underline">
-      <img src="${u.avatar}" class="w-12 h-12 rounded-full border-2 border-pink-500 object-cover" />
-      <div>
-        <div class="font-bold text-pink-600">${u.fullName}</div>
-        <div class="text-xs text-gray-500">@${u.username}</div>
+  users.forEach(u => {
+    if (u.isFriend) return;
+    if (u.incoming) return;
+    let buttonHTML = '';
+    if (u.friends && u.friends.includes(user.userId)) {
+      buttonHTML = `<button class="bg-gray-400 text-white px-3 py-1 rounded" disabled>Already Friends</button>`;
+    } else if (u.requested) {
+      buttonHTML = `<button class="bg-yellow-500 text-white px-3 py-1 rounded font-semibold" onclick="cancelRequest('${u.userId}')">Cancel Request</button>`;
+    } else if (u.incoming) {
+      buttonHTML = `<button class="bg-green-600 text-white px-3 py-1 rounded font-semibold" onclick="confirmFriend('${u.userId}')">Confirm Request</button>`;
+    } else {
+      buttonHTML = `<button class="bg-pink-600 text-white px-3 py-1 rounded font-semibold" onclick="addFriend('${u.userId}')">Add Friend</button>`;
+    }
+    peopleSection.innerHTML += `
+      <div class="flex items-center gap-4 bg-pink-50 rounded p-3">
+        <a href="view-profile.html?userId=${u.userId}" class="flex items-center gap-2 flex-1 hover:underline">
+          <img src="${u.avatar}" class="w-12 h-12 rounded-full border-2 border-pink-500 object-cover" />
+          <div>
+            <div class="font-bold text-pink-600 max-w-[120px] truncate" title="${u.fullName}">${u.fullName}</div>
+            <div class="text-xs text-gray-500 max-w-[120px] truncate" title="@${u.username}">@${u.username}</div>
+          </div>
+        </a>
         <span class="online-dot ${u.online ? 'online' : 'offline'}"></span>
         <span class="text-xs">${u.online ? 'Online' : 'Offline'}</span>
+        ${buttonHTML}
       </div>
-    </a>
-    <button class="bg-green-600 text-white px-3 py-1 rounded font-semibold" onclick="confirmFriend('${u.userId}')">Confirm</button>
-    <button class="bg-red-500 text-white px-3 py-1 rounded font-semibold" onclick="deleteRequest('${u.userId}')">Delete</button>
-  </div>
-`;
+    `;
   });
 }
 
+async function loadFollowers() {
+  const res = await fetch(`/api/followers/${user.userId}`);
+  const followers = await res.json();
+  allFollowers = followers; // Store for search
+  renderFollowers(followers);
+}
+
+function renderFollowers(followers) {
+  const followersSection = document.getElementById('followersSection');
+  followersSection.innerHTML = '';
+  if (followers.length === 0) {
+    followersSection.innerHTML = `<div class="text-center text-gray-500 py-8">No requests found. Try searching with a different name or username!</div>`;
+    return;
+  }
+  followers.forEach(u => {
+    followersSection.innerHTML += `
+      <div class="flex items-center gap-4 bg-pink-50 rounded p-3">
+        <a href="view-profile.html?userId=${u.userId}" class="flex items-center gap-2 flex-1 hover:underline">
+          <img src="${u.avatar}" class="w-12 h-12 rounded-full border-2 border-pink-500 object-cover" />
+          <div>
+            <div class="font-bold text-pink-600 max-w-[120px] truncate" title="${u.fullName}">${u.fullName}</div>
+            <div class="text-xs text-gray-500 max-w-[120px] truncate" title="@${u.username}">@${u.username}</div>
+            <span class="online-dot ${u.online ? 'online' : 'offline'}"></span>
+            <span class="text-xs">${u.online ? 'Online' : 'Offline'}</span>
+          </div>
+        </a>
+        <button class="bg-green-600 text-white px-3 py-1 rounded font-semibold" onclick="confirmFriend('${u.userId}')">Confirm</button>
+        <button class="bg-red-500 text-white px-3 py-1 rounded font-semibold" onclick="deleteRequest('${u.userId}')">Delete</button>
+      </div>
+    `;
+  });
+}
     // Add Friend
     window.addFriend = async function(targetId) {
       await fetch('/api/add-friend', {
@@ -209,6 +264,30 @@ window.deleteRequest = async function(requesterId) {
     // Initial load
     loadUsers();
     loadFollowers();
+
+    function filterUsers() {
+  const query = document.getElementById('searchInput').value.trim().toLowerCase();
+  if (document.getElementById('peopleSection').classList.contains('hidden')) {
+    // Followers tab
+    const filtered = allFollowers.filter(u =>
+      u.fullName.toLowerCase().includes(query) ||
+      u.username.toLowerCase().includes(query)
+    );
+    renderFollowers(filtered);
+  } else {
+    // People tab
+    const filtered = allPeople.filter(u =>
+      u.fullName.toLowerCase().includes(query) ||
+      u.username.toLowerCase().includes(query)
+    );
+    renderPeople(filtered);
+  }
+}
+
+function clearSearch() {
+  document.getElementById('searchInput').value = '';
+  filterUsers();
+}
   </script>
 </body>
 </html>

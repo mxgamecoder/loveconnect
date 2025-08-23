@@ -60,8 +60,8 @@
     }
     .reel {
       scroll-snap-align: start;
-      height: calc(100vh - 56px);
-      min-height: calc(100vh - 56px);
+      height: calc(100dvh - 56px);
+      min-height: calc(100dvh - 56px);
       width: 100vw;
       position: relative;
       background: #000;
@@ -83,6 +83,13 @@
       background: rgba(0,0,0,0.7);
       padding: 1rem 1.5rem 1.5rem 1.5rem;
       z-index: 20;
+      padding-bottom: 3.5rem;
+    }
+    @media (max-width: 600px) {
+      .reel-caption {
+        padding-bottom: max(3.5rem, env(safe-area-inset-bottom, 0px));
+      }
+      .reel-actions { right: 0.7rem; bottom: 6.5rem; gap: 1.5rem; }
     }
     .reel-actions {
       position: absolute;
@@ -106,10 +113,6 @@
       border: 2px solid #ec4899;
       object-fit: cover;
       margin-bottom: 0.5rem;
-    }
-    @media (max-width: 600px) {
-      .reel-caption { padding: 0.7rem 0.7rem 1rem 0.7rem; }
-      .reel-actions { right: 0.7rem; bottom: 6.5rem; gap: 1.5rem; }
     }
   </style>
 </head>
@@ -145,6 +148,29 @@
               class="px-3 py-1 bg-pink-500 text-white rounded">Send</button>
     </div>
   </div>
+
+  <div id="loadingSpinner" class="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+    <div class="w-12 h-12 border-4 border-t-transparent border-pink-500 rounded-full animate-spin"></div>
+  </div>
+
+<nav class="fixed bottom-0 left-0 w-full bg-white border-t border-pink-100 flex justify-around items-center py-2 z-40 md:hidden">
+  <a href="dashboard.html" class="flex flex-col items-center text-pink-500">
+    <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"></path></svg>
+    <span class="text-xs">Home</span>
+  </a>
+  <a href="follow.html" class="flex flex-col items-center text-pink-500">
+    <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A2 2 0 0020 6.382V5a2 2 0 00-2-2H6a2 2 0 00-2 2v1.382a2 2 0 00.447 1.342L9 10m6 0v10a2 2 0 01-2 2H9a2 2 0 01-2-2V10"></path></svg>
+    <span class="text-xs">Follow</span>
+  </a>
+  <a href="chat.html" class="flex flex-col items-center text-pink-500">
+    <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8s-9-3.582-9-8 4.03-8 9-8 9 3.582 9 8z"></path></svg>
+    <span class="text-xs">Chat</span>
+  </a>
+  <a href="profile.html" class="flex flex-col items-center text-pink-500">
+    <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5.121 17.804A13.937 13.937 0 0112 15c2.485 0 4.797.657 6.879 1.804M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+    <span class="text-xs">Profile</span>
+  </a>
+</nav>
 
 <script>
     const theme = JSON.parse(localStorage.getItem('theme')) || { bg: '#111827', accent: '#ec4899' };
@@ -195,6 +221,7 @@ async function getFriendStatus(ownerId) {
 
   // Fetch posts as reels (privacy respected)
   async function loadReels() {
+  document.getElementById('loadingSpinner').style.display = 'flex';
   const userId = currentUser.userId;
   const viewerId = currentUser.userId;
   const res = await fetch(`/api/posts/reels/${viewerId}`);
@@ -203,6 +230,7 @@ async function getFriendStatus(ownerId) {
   localStorage.setItem("lastLoadedPosts", JSON.stringify(posts));
   if (!posts.length) {
     document.getElementById('reelsList').innerHTML = '<div class="text-center text-gray-500">No reels found.</div>';
+    document.getElementById('loadingSpinner').style.display = 'none';
     return;
   }
 
@@ -307,7 +335,8 @@ async function getFriendStatus(ownerId) {
   }));
 
   document.getElementById('reelsList').innerHTML = reelHtmlArray.join('');
-  setupVideoAutoPlay(); // <-- call this right after rendering
+  setupVideoAutoPlay();
+  document.getElementById('loadingSpinner').style.display = 'none';
 }
 
   // Like post
@@ -394,16 +423,18 @@ async function getFriendStatus(ownerId) {
         View Replies (${comment.replies.length})
       </button>
       <div id="replies-${comment.commentId}" class="ml-12 mt-1 space-y-1 hidden">
-        ${comment.replies.map(r => `
-          <div class="flex items-center gap-2">
-            <a href="view-profile.html?userId=${r.userId}">
-              <img src="${r.avatar}" class="w-5 h-5 rounded-full cursor-pointer"/>
-            </a>
-            <span class="font-semibold">${r.username}</span>
-            <span class="text-xs text-gray-500">${new Date(r.createdAt).toLocaleString()}</span>
-            <span>: ${r.text}</span>
-          </div>
-        `).join("")}
+${comment.replies.map(r => `
+  <div class="w-full">
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="view-profile.html?userId=${r.userId}">
+        <img src="${r.avatar}" class="w-5 h-5 rounded-full cursor-pointer"/>
+      </a>
+      <span class="font-semibold">${r.username}</span>
+      <span class="text-xs text-gray-500">${new Date(r.createdAt).toLocaleString()}</span>
+    </div>
+    <div class="break-words whitespace-pre-line ml-7">: ${r.text}</div>
+  </div>
+`).join("")}
       </div>
     ` : '';
 
@@ -416,7 +447,7 @@ async function getFriendStatus(ownerId) {
           <span class="font-semibold">${comment.username}</span>
           <span class="text-xs text-gray-500">${new Date(comment.createdAt).toLocaleString()}</span>
         </div>
-        <div class="ml-8 mt-1">${comment.text}</div>
+        <div class="ml-8 mt-1 break-words whitespace-pre-line">${comment.text}</div>
         <button onclick="showReplyBox('${comment.commentId}')" 
                 class="ml-8 text-xs text-blue-500 hover:underline mt-1">
           Reply
@@ -697,7 +728,6 @@ function setupVideoAutoPlay() {
 }
 
 setupVideoAutoPlay();
-
 </script>
 </body>
 </html>

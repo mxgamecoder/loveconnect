@@ -94,6 +94,12 @@ io.on("connection", socket => {
 
   // When a message is sent
   socket.on('chatMessage', msg => {
+    // Check if recipient has blocked the sender
+    const blockedSet = blockList[msg.to];
+    if (blockedSet && blockedSet.has(msg.from)) {
+      // Recipient has blocked sender: do NOT deliver message
+      return;
+    }
     // Only save text messages here!
     if (!msg.fileUrl) {
       const file = getMessageFile(msg.roomId);
@@ -302,6 +308,14 @@ app.post('/api/report', (req, res) => {
   const file = path.join(reportsDir, `${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
   fs.writeFileSync(file, JSON.stringify(report, null, 2));
   res.json({ success: true });
+});
+app.get('/api/blocked-users', async (req, res) => {
+  const { userId } = req.query;
+  const blockedIds = blockList[userId] ? Array.from(blockList[userId]) : [];
+  if (!blockedIds.length) return res.json([]);
+  // Fetch user info for each blocked user
+  const users = await User.find({ userId: { $in: blockedIds } }, 'userId username fullName avatar');
+  res.json(users);
 });
 http.listen(3000, () => {
   console.log('🚀 Server running on http://localhost:3000');

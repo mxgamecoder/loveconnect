@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Blocked Users | LoveConnect</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Load theme from localStorage
+    const theme = JSON.parse(localStorage.getItem('theme')) || { bg: '#fdf2f8', accent: '#ec4899' };
+    document.documentElement.style.setProperty('--theme-bg', theme.bg);
+    document.documentElement.style.setProperty('--theme-accent', theme.accent);
+  </script>
+  <style>
+    body { background: var(--theme-bg, #fdf2f8); }
+    .accent { color: var(--theme-accent, #ec4899); }
+    .accent-bg { background: var(--theme-accent, #ec4899); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center pt-10">
+  <div class="w-full max-w-lg px-4 mb-6 flex items-center">
+    <a href="settings.html" class="accent hover:text-pink-800 flex items-center">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+      <span class="sr-only">Back</span>
+    </a>
+    <h2 class="text-2xl font-bold accent ml-2">Blocked Users</h2>
+  </div>
+  <div id="blockedList" class="w-full max-w-lg px-4 space-y-4"></div>
+
+  <script>
+ 
+    const accounts = JSON.parse(localStorage.getItem('userAccounts')) || [];
+const currentIndex = Number(localStorage.getItem('currentAccountIndex')) || 0;
+const user = accounts[currentIndex] || {};
+    async function loadBlocked() {
+      const res = await fetch(`/api/blocked-users?userId=${user.userId}`);
+      const blocked = await res.json();
+      const container = document.getElementById('blockedList');
+      if (!blocked.length) {
+        container.innerHTML = `<div class="text-center text-gray-500 py-8">You have not blocked anyone yet.</div>`;
+        return;
+      }
+      container.innerHTML = blocked.map(u => `
+        <div class="flex items-center gap-4 bg-white rounded-lg shadow p-3">
+          <img src="${u.avatar}" class="w-12 h-12 rounded-full border-2 accent-bg object-cover"/>
+          <div class="flex-1">
+            <div class="font-bold accent">${u.fullName}</div>
+            <div class="text-xs text-gray-500">@${u.username}</div>
+          </div>
+          <button onclick="unblockUser('${u.userId}')" class="px-4 py-2 rounded accent-bg text-white font-semibold hover:opacity-80">Unblock</button>
+        </div>
+      `).join('');
+    }
+
+    async function unblockUser(targetId) {
+      const res = await fetch('/api/unblock', {
+        method: 'POST',
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.userId, targetId })
+      });
+      if (res.ok) loadBlocked();
+    }
+
+    loadBlocked();
+  </script>
+</body>
+</html>

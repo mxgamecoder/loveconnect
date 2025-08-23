@@ -74,8 +74,13 @@
     async function loadFriends() {
       // Fetch friends from backend
       const res = await fetch(`/api/users/${currentUser.userId}`);
-      let friends = [];
-      if (res.ok) friends = await res.json();
+      let users = [];
+      if (res.ok) users = await res.json();
+
+      // Only show users who are mutual friends
+      let friends = users.filter(u => 
+        u.isFriend && u.friends && u.friends.includes(currentUser.userId)
+      );
 
       const list = document.getElementById('friendsList');
       const modalList = document.getElementById('modalFriendsList');
@@ -184,8 +189,13 @@ return `
     // Load friends into modal
     async function loadModalFriends() {
       const res = await fetch(`/api/users/${currentUser.userId}`);
-      let friends = [];
-      if (res.ok) friends = await res.json();
+      let users = [];
+      if (res.ok) users = await res.json();
+
+      // Only show users who are mutual friends
+      let friends = users.filter(u => 
+        u.isFriend && u.friends && u.friends.includes(currentUser.userId)
+      );
 
       const list = document.getElementById('modalFriendsList');
       if (!friends.length) {

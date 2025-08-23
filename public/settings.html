@@ -76,9 +76,10 @@
     Privacy: <span class="text-gray-700 font-normal">Control who can see your profile and posts.</span>
   </li>
 </a>
-    <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600">Friends: <span class="text-gray-700 font-normal">Manage your friends list and requests.</span></li>
-    <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600">Chat: <span class="text-gray-700 font-normal">Chat settings and preferences.</span></li>
-    <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600 cursor-pointer"
+<a href="follow.html" class="block">
+    <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600">Friends: <span class="text-gray-700 font-normal">Manage your friends list and requests.</span></li></a>
+   <!-- <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600">Chat: <span class="text-gray-700 font-normal">Chat settings and preferences.</span></li>--> 
+   <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600 cursor-pointer"
     onclick="toggleThemePicker()">
   Theme: <span class="text-gray-700 font-normal">Switch between light and dark mode.</span>
 </li>
@@ -86,7 +87,11 @@
     onclick="logout()">
   Logout: <span class="text-gray-700 font-normal">Log out of your account.</span>
 </li>
-    <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600">Blocked Users: <span class="text-gray-700 font-normal">View and manage blocked users.</span></li>
+    <a href="blocked.html" class="block">
+  <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600 hover:bg-pink-50 cursor-pointer">
+    Blocked Users: <span class="text-gray-700 font-normal">View and manage blocked users.</span>
+  </li>
+</a>
     <a href="account-status.html" class="block">
   <li class="w-full bg-white rounded-lg shadow px-6 py-4 font-semibold text-pink-600 hover:bg-pink-50 cursor-pointer">
     Account Status: <span class="text-gray-700 font-normal">View your account status and subscription.</span>
